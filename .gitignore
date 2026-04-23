@@ -1,0 +1,35 @@
+# Gradle & Build
+.gradle/
+**/build/
+.kotlin/
+**/.kotlin/
+*.kotlincm
+
+# IDE (IntelliJ / Android Studio)
+.idea/
+*.iml
+*.iws
+out/
+
+# Android
+local.properties
+*.ap_
+*.apk
+*.dex
+/captures
+
+# iOS (Xcode & CocoaPods)
+**/iosApp/DerivedData/
+**/iosApp/*.xcodeproj/xcuserdata/
+**/iosApp/*.xcworkspace/xcuserdata/
+**/iosApp/Pods/
+.pnpm-store/
+
+# Web (JS / Wasm) & Desktop
+node_modules/
+dist/
+.jetbrains/
+
+# OS
+.DS_Store
+Thumbs.db
