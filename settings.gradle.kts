@@ -1,6 +1,5 @@
 @file:Suppress("UnstableApiUsage")
 
-rootProject.name = "CalculatorHard"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 pluginManagement {
@@ -34,5 +33,14 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
+rootProject.name = "CalculatorHard"
+includeBuild("build-logic")
+
 include(":androidApp")
 include(":composeApp")
+
+include(":shared")
+
+include(":presentation")
+include(":domain")
+include(":data")
