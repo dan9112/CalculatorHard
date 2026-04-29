@@ -27,6 +27,9 @@ kotlin {
             baseName = "Shared"
             isStatic = true
             export(project(":presentation"))
+
+            export(libs.decompose.core)
+            export(libs.essenty.lifecycle)
         }
     }
 
@@ -50,6 +53,8 @@ kotlin {
 
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.compose)
+
+//            implementation(libs.kotzilla.sdk.compose)
         }
         commonTest.dependencies {
             implementation(libs.koin.test)

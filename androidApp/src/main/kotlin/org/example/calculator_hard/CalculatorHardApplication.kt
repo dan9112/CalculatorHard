@@ -1,4 +1,4 @@
-package org.example.calculator_hard.application
+package org.example.calculator_hard
 
 import android.app.Application
 import org.example.calculator_hard.shared.startKoin

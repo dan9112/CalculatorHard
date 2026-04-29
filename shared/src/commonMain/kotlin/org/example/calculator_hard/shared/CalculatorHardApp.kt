@@ -1,5 +1,6 @@
 package org.example.calculator_hard.shared
 
+//import io.kotzilla.generated.monitoring
 import org.example.calculator_hard.data.dataModule
 import org.example.calculator_hard.presentation.presentationModule
 import org.koin.core.context.startKoin
@@ -14,6 +15,8 @@ private fun privateStartKoin(appDeclaration: KoinAppDeclaration? = null) {
             presentationModule
         )
         appDeclaration?.invoke(this)
+
+//        monitoring()
     }
 }
 

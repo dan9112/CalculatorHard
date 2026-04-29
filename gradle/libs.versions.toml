@@ -1,26 +1,31 @@
 [versions]
-agp = "9.1.1"
-android-compileSdk = "36"
+agp = "9.2.0"
+android-compileSdk = "37"
 android-minSdk = "24"
-android-targetSdk = "36"
+android-targetSdk = "37"
 androidx-activity = "1.13.0"
 androidx-appcompat = "1.7.1"
 androidx-core = "1.18.0"
 androidx-espresso = "3.7.0"
 androidx-lifecycle = "2.10.0"
 androidx-testExt = "1.3.0"
-composeHotReload = "1.0.0"
+composeHotReload = "1.1.0"
 composeMultiplatform = "1.10.3"
+decompose = "3.5.0"
+essenty = "2.5.0"
 junit = "4.13.2"
 koin = "4.2.1"
 koinKspCompiler = "2.3.1"
 koinCompilerPlugin = "0.6.2"
 kotlin = "2.3.21"
 kotlinx-coroutines = "1.10.2"
+kotlinxBrowser = "0.5.0"
 kotzilla = "2.1.3"
 material3 = "1.9.0"
 
 [libraries]
+decompose-core = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
+decompose-compose = { module = "com.arkivanov.decompose:extensions-compose", version.ref = "decompose" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -38,14 +43,17 @@ compose-material3 = { module = "org.jetbrains.compose.material3:material3", vers
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+essenty-lifecycle = { module = "com.arkivanov.essenty:lifecycle", version.ref = "essenty" }
+koin-android = { module = "io.insert-koin:koin-android" }
 koin-annotations = { module = "io.insert-koin:koin-annotations" }
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin" }
 koin-compose = { module = "io.insert-koin:koin-compose" }
 koin-core = { module = "io.insert-koin:koin-core" }
 koin-ksp-compiler = { module = "io.insert-koin:koin-ksp-compiler", version.ref = "koinKspCompiler" }
 koin-test = { module = "io.insert-koin:koin-test" }
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
-kotzilla-sdk-compose = { group = "io.kotzilla", name = "kotziilla-sdk-compose", version.ref = "kotzilla" }
+kotzilla-sdk-compose = { group = "io.kotzilla", name = "kotzilla-sdk-compose", version.ref = "kotzilla" }
 
 #gradlePlugin-android = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
 gradlePlugin-compose = { group = "org.jetbrains.compose", name = "compose-gradle-plugin", version.ref = "composeMultiplatform" }

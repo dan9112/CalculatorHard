@@ -13,7 +13,7 @@ kotlin {
 }
 
 android {
-    namespace = "org.example.calculator_hard.application"
+    namespace = "org.example.calculator_hard"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
@@ -31,6 +31,7 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true
+            isShrinkResources = true
         }
     }
 }
@@ -39,11 +40,11 @@ dependencies {
     implementation(projects.shared)
 
     implementation(libs.androidx.activity.compose)
+    implementation(libs.compose.foundation)
     implementation(libs.androidx.appcompat)
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
 
-//    implementation(project.dependencies.platform(libs.koin.bom))
-//    implementation(libs.koin.annotations)
-//    implementation(libs.koin.core)
+    implementation(project.dependencies.platform(libs.koin.bom))
+    implementation(libs.koin.android)
 }
