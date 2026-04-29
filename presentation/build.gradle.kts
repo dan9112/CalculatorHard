@@ -5,7 +5,7 @@ plugins {
     id("kmp-library-android")
     id("kmp-library-compose")
     id("kmp-library-test")
-    id("koin-annotations")
+//    id("koin-annotations")
 }
 
 kotlin {
@@ -29,6 +29,8 @@ kotlin {
             implementation(projects.domain)
 
             implementation(libs.compose.components.resources)
+
+            implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.compose)
         }
         jvmMain.dependencies {
@@ -40,6 +42,6 @@ kotlin {
     }
 }
 
-koinCompiler {
-    compileSafety = false
-}
+//koinCompiler {
+//    compileSafety = false
+//}

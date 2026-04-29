@@ -1,8 +1,8 @@
 package org.example.calculator_hard.data
 
-import org.koin.core.annotation.ComponentScan
-import org.koin.core.annotation.Module
+import org.example.calculator_hard.domain.InfoRepository
+import org.koin.dsl.module
 
-@Module
-@ComponentScan("org.example.calculator_hard.data")
-class DataModule
+val dataModule = module {
+    single<InfoRepository> { InfoRepositoryImpl() }
+}

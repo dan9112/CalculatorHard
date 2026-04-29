@@ -1,8 +1,8 @@
 package org.example.calculator_hard.presentation
 
-import org.koin.core.annotation.ComponentScan
-import org.koin.core.annotation.Module
+import org.koin.core.module.dsl.factoryOf
+import org.koin.dsl.module
 
-@Module
-@ComponentScan("org.example.calculator_hard.presentation")
-class PresentationModule
+val presentationModule = module {
+    factoryOf(constructor = ::Greeting)
+}

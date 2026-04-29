@@ -5,7 +5,7 @@ plugins {
     id("kmp-library-android")
     id("kmp-library-compose")
     id("kmp-library-test")
-    id("koin-annotations")
+//    id("koin-annotations")
 
 //    alias(libs.plugins.kotzilla)
 }
@@ -26,7 +26,6 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
-            export(libs.koin.core)
             export(project(":presentation"))
         }
     }
@@ -48,6 +47,8 @@ kotlin {
             implementation(projects.domain)
             implementation(projects.data)
 
+
+            implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.compose)
         }
         commonTest.dependencies {

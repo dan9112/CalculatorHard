@@ -26,8 +26,8 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.shared)
 
-            implementation(project.dependencies.platform(libs.koin.bom))
-            implementation(libs.koin.core)
+//            implementation(project.dependencies.platform(libs.koin.bom))
+//            implementation(libs.koin.core)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
