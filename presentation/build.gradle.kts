@@ -11,6 +11,8 @@ plugins {
 kotlin {
     android {
         namespace = "org.example.calculator_hard.presentation"
+
+        withHostTest { }
     }
     iosArm64()
     iosSimulatorArm64()
@@ -32,6 +34,10 @@ kotlin {
 
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.compose)
+
+            api(libs.decompose.core)
+            implementation(libs.essenty.lifecycle)
+            api(libs.decompose.compose)
         }
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutinesSwing)

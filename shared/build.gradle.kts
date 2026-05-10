@@ -5,14 +5,7 @@ plugins {
     id("kmp-library-android")
     id("kmp-library-compose")
     id("kmp-library-test")
-//    id("koin-annotations")
-
-//    alias(libs.plugins.kotzilla)
 }
-
-//kotzilla {
-//    versionName = "1.0.0"
-//}
 
 kotlin {
     android {
@@ -27,6 +20,9 @@ kotlin {
             baseName = "Shared"
             isStatic = true
             export(project(":presentation"))
+
+            export(libs.decompose.core)
+            export(libs.essenty.lifecycle)
         }
     }
 

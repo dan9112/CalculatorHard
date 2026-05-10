@@ -17,7 +17,7 @@ private fun privateStartKoin(appDeclaration: KoinAppDeclaration? = null) {
     }
 }
 
-fun startKoin(appDeclaration: KoinAppDeclaration) =
+internal fun startKoin(appDeclaration: KoinAppDeclaration) =
     privateStartKoin(appDeclaration = appDeclaration)
 
 fun startKoin() = privateStartKoin(appDeclaration = null)
