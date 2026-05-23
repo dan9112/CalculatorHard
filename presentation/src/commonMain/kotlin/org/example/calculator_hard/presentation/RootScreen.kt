@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -126,198 +127,194 @@ fun RootScreen(
     rootComponent: RootComponent,
     orientation: Orientation = rememberOrientation()
 ) {
-    BoxWithConstraints(
-        modifier = modifier
-            .background(color = Color.DarkGray)
-            .safeDrawingPadding()// todo: replace with normal paddings later!
-            .fillMaxSize()
-            .padding(all = PADDINGS.dp)
-    ) {
-        val width = maxWidth
-        val height = maxHeight
-        val targetDisplayWidth = when (orientation) {
-            Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT)).coerceAtMost(
-                maximumValue = width - MIN_BUTTONS_WIDTH.dp
-            )
+    Scaffold {
+        BoxWithConstraints(modifier = modifier.padding(all = PADDINGS.dp)) {
+            val width = maxWidth - PADDINGS.dp
+            val height = maxHeight - PADDINGS.dp
 
-            Orientation.Vertical -> width
-        }
-        val targetDisplayHeight = when (orientation) {
-            Orientation.Horizontal -> height
-            Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT)).coerceAtMost(
-                maximumValue = height - MIN_BUTTONS_HEIGHT.dp
-            )
-        }
-        val targetButtonsWidth = when (orientation) {
-            Orientation.Horizontal -> {
-                width - targetDisplayWidth
+            val targetDisplayWidth = when (orientation) {
+                Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT)).coerceAtMost(
+                    maximumValue = width - MIN_BUTTONS_WIDTH.dp
+                )
+
+                Orientation.Vertical -> maxWidth
+            }
+            val targetDisplayHeight = when (orientation) {
+                Orientation.Horizontal -> maxHeight
+                Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT)).coerceAtMost(
+                    maximumValue = height - MIN_BUTTONS_HEIGHT.dp
+                )
+            }
+            val targetButtonsWidth = when (orientation) {
+                Orientation.Horizontal -> width - targetDisplayWidth
+                Orientation.Vertical -> maxWidth
+            }
+            val targetButtonsHeight = when (orientation) {
+                Orientation.Horizontal -> maxHeight
+                Orientation.Vertical -> height - targetDisplayHeight
             }
 
-            Orientation.Vertical -> {
-                width
-            }
-        }
-        val targetButtonsHeight = when (orientation) {
-            Orientation.Horizontal -> {
-                height
-            }
+            val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
+            val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
+            val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
+            val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
 
-            Orientation.Vertical -> {
-                height - targetDisplayHeight
-            }
-        }
+            val calculation by rootComponent.calculation.collectAsState()
+            var currentNumber by rememberSaveable { mutableStateOf(value = "") }
 
-        val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
-        val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
-        val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
-        val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
-
-        val calculation by rootComponent.calculation.collectAsState()
-        var currentNumber by rememberSaveable { mutableStateOf(value = "") }
-
-        val onDigit: (String) -> Unit = { digit ->
-            if (calculation.stored && currentNumber.isBlank()) {
-                if (digit == ".") currentNumber = "0"
-                currentNumber += digit
-            } else {
-                if (currentNumber == "0" && digit != ".") {
-                    currentNumber = digit
+            val onDigit: (String) -> Unit = { digit ->
+                if (calculation.stored && currentNumber.isBlank()) {
+                    if (digit == ".") currentNumber = "0"
+                    currentNumber += digit
                 } else {
-                    if (currentNumber.contains(".")) {
-                        if (currentNumber.length < 7) currentNumber += digit
+                    if (currentNumber == "0" && digit != ".") {
+                        currentNumber = digit
                     } else {
-                        if (digit == ".") {
-                            if (currentNumber.isBlank()) currentNumber += "0"
-                            currentNumber += digit
-                        } else if (currentNumber.length < 4) {
-                            currentNumber += digit
+                        if (currentNumber.contains(".")) {
+                            if (currentNumber.length < 7) currentNumber += digit
+                        } else {
+                            if (digit == ".") {
+                                if (currentNumber.isBlank()) currentNumber += "0"
+                                currentNumber += digit
+                            } else if (currentNumber.length < 4) {
+                                currentNumber += digit
+                            }
                         }
                     }
                 }
             }
-        }
 
-        val onOperation: (Operation) -> Unit = { op ->
-            rootComponent.addNumber(if (currentNumber.isBlank()) 0f else currentNumber.toFloat())
-            rootComponent.addOperation(op)
-            currentNumber = ""
-        }
-
-        val onEquals: () -> Unit = {
-            if (currentNumber.isNotEmpty()) {
-                rootComponent.addNumber(currentNumber.toFloat())
-                rootComponent.finishCalculation()
+            val onOperation: (Operation) -> Unit = { op ->
+                rootComponent.addNumber(if (currentNumber.isBlank()) 0f else currentNumber.toFloat())
+                rootComponent.addOperation(op)
                 currentNumber = ""
             }
-        }
 
-        val onBackspace: () -> Unit = {
-            if (calculation.stored && currentNumber.isBlank()) {
-                currentNumber = "0"
-            } else {
+            val onEquals: () -> Unit = {
                 if (currentNumber.isNotEmpty()) {
-                    currentNumber = currentNumber.dropLast(1)
-                } else {
-                    rootComponent.removeLastSegment()
+                    rootComponent.addNumber(currentNumber.toFloat())
+                    rootComponent.finishCalculation()
+                    currentNumber = ""
                 }
             }
-        }
 
-        val historyScrollState = rememberLazyListState()
-        val nestedScrollConnection = object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource) =
-                Offset.Zero
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ) = Offset(0f, consumed.y)
-        }
-
-        Column(
-            modifier = Modifier
-                .width(displayWidth)
-                .height(displayHeight)
-                .align(Alignment.TopStart)
-                .background(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(size = BUTTON_CORNERS.dp)
-                )
-                .nestedScroll(nestedScrollConnection)
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-        ) {
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                state = historyScrollState,
-                reverseLayout = true,
-                verticalArrangement = Arrangement.spacedBy(
-                    2.dp,
-                    alignment = Alignment.Bottom
-                ),
-                horizontalAlignment = Alignment.End
-            ) {}
-
-            val numbers = calculation.numbers
-            val operations = calculation.operations
-            val isNewCalculation = calculation.stored && currentNumber.isNotEmpty()
-
-            val expression = buildString {
-                if (!isNewCalculation) {
-                    for (i in operations.indices) {
-                        append("${numbers[i]} ")
-                        append(
-                            when (operations[i]) {
-                                Operation.Plus -> '+'
-                                Operation.Minus -> '-'
-                                Operation.Mult -> '*'
-                                Operation.Div -> '/'
-                            }
-                        )
-                        append(" ")
+            val onBackspace: () -> Unit = {
+                if (calculation.stored && currentNumber.isBlank()) {
+                    currentNumber = "0"
+                } else {
+                    if (currentNumber.isNotEmpty()) {
+                        currentNumber = currentNumber.dropLast(1)
+                    } else {
+                        rootComponent.removeLastSegment()
                     }
                 }
-                append(
-                    currentNumber.ifEmpty {
-                        if (!isNewCalculation && numbers.size > operations.size) {
-                            numbers.last().toString()
-                        } else {
-                            "0"
+            }
+
+            val historyScrollState = rememberLazyListState()
+            val nestedScrollConnection = object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource) =
+                    Offset.Zero
+
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource
+                ) = Offset(0f, consumed.y)
+            }
+
+            Column(
+                modifier = Modifier
+                    .width(displayWidth)
+                    .height(displayHeight)
+                    .align(Alignment.TopStart)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(size = BUTTON_CORNERS.dp)
+                    )
+                    .nestedScroll(nestedScrollConnection)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    state = historyScrollState,
+                    reverseLayout = true,
+                    verticalArrangement = Arrangement.spacedBy(
+                        2.dp,
+                        alignment = Alignment.Bottom
+                    ),
+                    horizontalAlignment = Alignment.End
+                ) {}
+
+                val numbers = calculation.numbers
+                val operations = calculation.operations
+                val isNewCalculation = calculation.stored && currentNumber.isNotEmpty()
+
+                val expression = buildString {
+                    if (!isNewCalculation) {
+                        for (i in operations.indices) {
+                            append("${numbers[i]} ")
+                            append(
+                                when (operations[i]) {
+                                    Operation.Plus -> '+'
+                                    Operation.Minus -> '-'
+                                    Operation.Mult -> '*'
+                                    Operation.Div -> '/'
+                                }
+                            )
+                            append(" ")
                         }
                     }
+                    append(
+                        currentNumber.ifEmpty {
+                            if (!isNewCalculation && numbers.size > operations.size) {
+                                numbers.last()
+                                    .toString()
+                            } else {
+                                "0"
+                            }
+                        }
+                    )
+                }
+
+                val previewResult = calculatePreview(
+                    numbers = if (isNewCalculation) emptyList() else numbers,
+                    operations = if (isNewCalculation) emptyList() else operations,
+                    currentNumberStr = currentNumber
+                )
+
+                Text(
+                    text = buildAnnotatedString {
+                        append(expression)
+                        appendLine()
+                        withStyle(
+                            style = SpanStyle(
+                                fontWeight = if (calculation.stored && currentNumber.isBlank()) {
+                                    FontWeight.Bold
+                                } else {
+                                    null
+                                }
+                            )
+                        ) {
+                            append(previewResult)
+                        }
+                    },
+                    modifier = Modifier.wrapContentHeight().fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.End
                 )
             }
 
-            val previewResult = calculatePreview(
-                numbers = if (isNewCalculation) emptyList() else numbers,
-                operations = if (isNewCalculation) emptyList() else operations,
-                currentNumberStr = currentNumber
-            )
-
-            Text(
-                text = buildAnnotatedString {
-                    append(expression)
-                    appendLine()
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                        append(previewResult)
-                    }
-                },
-                modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                textAlign = TextAlign.End
+            StaticCalculatorGrid(
+                modifier = Modifier
+                    .width(buttonsWidth)
+                    .height(buttonsHeight)
+                    .align(Alignment.BottomEnd),
+                onDigit = onDigit,
+                onOperation = onOperation,
+                onEquals = onEquals,
+                onBackspace = onBackspace
             )
         }
-
-        StaticCalculatorGrid(
-            modifier = Modifier
-                .width(buttonsWidth)
-                .height(buttonsHeight)
-                .align(Alignment.BottomEnd),
-            onDigit = onDigit,
-            onOperation = onOperation,
-            onEquals = onEquals,
-            onBackspace = onBackspace
-        )
     }
 }
 
