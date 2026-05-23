@@ -71,6 +71,7 @@ private class RootComponentImpl(componentContext: ComponentContext) : RootCompon
 
     override fun removeLastSegment(): Float {
         var number = 0f
+        if (calculation.value.numbers.isEmpty()) return number
         _calculation.update {
             number = it.numbers.last()
             it.copy(
