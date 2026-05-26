@@ -1,0 +1,17 @@
+import kotlin.Float;
+import kotlin.collections.List;
+import org.example.calculator_hard.domain.Operation;
+
+CREATE TABLE IF NOT EXISTS Calculations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numbers BLOB AS List<Float> NOT NULL,
+    operations BLOB AS List<Operation> NOT NULL,
+    result REAL
+);
+
+insertCalculation:
+INSERT INTO Calculations(numbers, operations, result)
+VALUES (:numbers, :operations, :result);
+
+getAllCalculations:
+SELECT id, numbers, operations, result FROM Calculations;

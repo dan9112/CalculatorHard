@@ -1,13 +1,16 @@
 package org.example.calculator_hard.presentation
 
 import com.arkivanov.decompose.ComponentContext
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import org.example.calculator_hard.domain.CalculationRepository
+import org.example.calculator_hard.domain.Operation
 import kotlin.math.absoluteValue
+import org.example.calculator_hard.domain.Calculation as DomainCalculation
 
 interface RootComponent {
+    val calculations: StateFlow<List<DomainCalculation>?>
     val calculation: StateFlow<Calculation>
 
     fun addOperation(operation: Operation)
@@ -16,8 +19,15 @@ interface RootComponent {
     fun removeLastSegment(): Float
 }
 
-private class RootComponentImpl(componentContext: ComponentContext) : RootComponent,
-    ComponentContext by componentContext {
+private class RootComponentImpl(
+    componentContext: ComponentContext,
+    private val calculationRepository: CalculationRepository
+) : RootComponent, ComponentContext by componentContext {
+    private val componentScope = componentContext.coroutineScope()
+    override val calculations = calculationRepository
+        .calculations
+        .stateIn(scope = componentScope, started = SharingStarted.Eagerly, initialValue = null)
+
     private val _calculation = MutableStateFlow(value = Calculation())
     override val calculation = _calculation.asStateFlow()
 
@@ -63,9 +73,22 @@ private class RootComponentImpl(componentContext: ComponentContext) : RootCompon
     }
 
     override fun finishCalculation() {
-        // todo: add storing later!
+        // todo: add check later!
         _calculation.update {
-            if (it.stored) it else it.copy(stored = true)
+            if (it.stored) it else {
+                it.copy(stored = true)
+            }
+        }
+        componentScope.launch {
+            calculationRepository.addCalculation(
+                calculation.value.run {
+                    DomainCalculation(
+                        numbers = numbers,
+                        operations = operations,
+                        result = (result as? CalculationResult.Result)?.number?.toDouble()
+                    )
+                }
+            )
         }
     }
 
@@ -150,5 +173,8 @@ private class RootComponentImpl(componentContext: ComponentContext) : RootCompon
     }
 }
 
-fun createRootComponent(componentContext: ComponentContext): RootComponent =
-    RootComponentImpl(componentContext)
+fun createRootComponent(
+    componentContext: ComponentContext,
+    calculationRepository: CalculationRepository
+): RootComponent =
+    RootComponentImpl(componentContext, calculationRepository)
