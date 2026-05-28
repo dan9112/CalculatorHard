@@ -11,12 +11,14 @@ import org.koin.dsl.module
 
 val dataModule = module {
     single<InfoRepository> { InfoRepositoryImpl() }
-    single<CalculationRepository> { CalculationRepositoryImpl(databaseDeferred = get()) }
+    if (!getPlatform().name.startsWith(prefix = "Web")) {
+        single<CalculationRepository> { SqlDelightCalculationRepository(databaseDeferred = get()) }
 
-    single<Deferred<SQLDelightDatabase>> {
-        CoroutineScope(context = Dispatchers.Default).async {
-            val factory: DriverFactory = get()
-            createDatabase(factory)
+        single<Deferred<SQLDelightDatabase>> {
+            CoroutineScope(context = Dispatchers.Default).async {
+                val factory: DriverFactory = get()
+                createDatabase(factory)
+            }
         }
     }
 }

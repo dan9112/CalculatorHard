@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 import org.example.calculator_hard.domain.Calculation
 import org.example.calculator_hard.domain.CalculationRepository
 
-class CalculationRepositoryImpl(private val databaseDeferred: Deferred<SQLDelightDatabase>) :
+class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQLDelightDatabase>) :
     CalculationRepository {
     @OptIn(ExperimentalCoroutinesApi::class)
     override val calculations: Flow<List<Calculation>> = channelFlow {
