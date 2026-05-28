@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.example.calculator_hard.domain.Calculation
 import org.example.calculator_hard.domain.CalculationRepository
+import org.example.calculator_hard.domain.Operation
 
 class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQLDelightDatabase>) :
     CalculationRepository {
@@ -27,7 +28,12 @@ class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQL
             .mapToList(context = Dispatchers.Default)
             .map { list ->
                 list.map { entity ->
-                    Calculation(entity.numbers, entity.operations, entity.result)
+                    Calculation(
+                        id = entity.id,
+                        numbers = entity.numbers,
+                        operations = entity.operations,
+                        result = entity.result
+                    )
                 }
             }
             // 3. Отправляем все обновления в канал
@@ -36,15 +42,27 @@ class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQL
             }
     }
 
-    override suspend fun addCalculation(calculation: Calculation) {
-        withContext(context = Dispatchers.Default) {
-            val db = databaseDeferred.await()
+    override suspend fun addCalculation(
+        numbers: List<Float>,
+        operations: List<Operation>,
+        result: Double?
+    ): Long = withContext(context = Dispatchers.Default) {
+        val db = databaseDeferred.await()
 
-            db.calculationsQueries.insertCalculation(
-                numbers = calculation.numbers,
-                operations = calculation.operations,
-                result = calculation.result
-            )
-        }
+        db
+            .calculationsQueries
+            .transactionWithResult {
+                db
+                    .calculationsQueries
+                    .insertCalculation(
+                        numbers = numbers,
+                        operations = operations,
+                        result = result
+                    )
+                db
+                    .calculationsQueries
+                    .lastInsertId()
+                    .executeAsOne()
+            }
     }
 }

@@ -5,5 +5,9 @@ import kotlinx.coroutines.flow.Flow
 interface CalculationRepository {
     val calculations: Flow<List<Calculation>>
 
-    suspend fun addCalculation(calculation: Calculation)
+    suspend fun addCalculation(
+        numbers: List<Float>,
+        operations: List<Operation>,
+        result: Double?
+    ): Long
 }

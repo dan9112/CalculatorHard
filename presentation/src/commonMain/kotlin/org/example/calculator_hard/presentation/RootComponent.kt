@@ -80,15 +80,13 @@ private class RootComponentImpl(
             }
         }
         componentScope.launch {
-            calculationRepository.addCalculation(
-                calculation.value.run {
-                    DomainCalculation(
-                        numbers = numbers,
-                        operations = operations,
-                        result = (result as? CalculationResult.Result)?.number?.toDouble()
-                    )
-                }
-            )
+            calculation.value.run {
+                calculationRepository.addCalculation(
+                    numbers = numbers,
+                    operations = operations,
+                    result = (result as? CalculationResult.Result)?.number?.toDouble()
+                )
+            }
         }
     }
 

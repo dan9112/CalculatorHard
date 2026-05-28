@@ -13,5 +13,8 @@ insertCalculation:
 INSERT INTO Calculations(numbers, operations, result)
 VALUES (:numbers, :operations, :result);
 
+lastInsertId:
+SELECT last_insert_rowid();
+
 getAllCalculations:
 SELECT id, numbers, operations, result FROM Calculations;
