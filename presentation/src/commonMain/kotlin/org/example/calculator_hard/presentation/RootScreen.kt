@@ -12,14 +12,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +27,8 @@ import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.example.calculator_hard.domain.Operation
+import kotlin.math.absoluteValue
+import kotlin.math.roundToLong
 
 // ✅ ИСХОДНЫЕ КОНСТАНТЫ ВОССТАНОВЛЕНЫ С ИСХОДНОЙ ВИДИМОСТЬЮ
 private const val MIN_DISPLAY_WIDTH = 180
@@ -56,57 +55,41 @@ val MIN_SCREEN_VERTICAL_HEIGHT = MIN_DISPLAY_HEIGHT + MIN_BUTTONS_HEIGHT + PADDI
 @Composable
 expect fun rememberOrientation(): Orientation
 
-/** Вычисляет результат "на лету" для динамического предпросмотра */
-private fun calculatePreview(
-    numbers: List<Float>,
-    operations: List<Operation>,
-    currentNumberStr: String
-): String {
-    if (currentNumberStr.isEmpty() && numbers.isEmpty()) return "0"
-    val currentNum = currentNumberStr.toFloatOrNull() ?: 0f
+fun Double.formatDisplay() = formatWithPrecision(this, factor = 1_000_000L, precision = 6)
 
-    val allNumbers = if (currentNumberStr.isNotEmpty()) {
-        if (numbers.size > operations.size) {
-            numbers.dropLast(1) + currentNum
-        } else {
-            numbers + currentNum
-        }
-    } else {
-        numbers
-    }
+fun Float.formatDisplay() = when {
+    isNaN() -> "NaN"
+    this == Float.POSITIVE_INFINITY -> "∞"
+    this == Float.NEGATIVE_INFINITY -> "-∞"
+    else -> toString()
+        .toDouble()
+        .let { formatWithPrecision(it, factor = 100L, precision = 2) }
+}
 
-    if (allNumbers.isEmpty()) return "0"
-    if (allNumbers.size == 1 && operations.isEmpty()) return allNumbers[0].toString()
+private fun formatWithPrecision(value: Double, factor: Long, precision: Int): String {
+    if (value.isNaN()) return "NaN"
+    if (value == Double.POSITIVE_INFINITY) return "∞"
+    if (value == Double.NEGATIVE_INFINITY) return "-∞"
 
-    val nums = allNumbers.toMutableList()
-    val ops = operations.toMutableList()
-    if (nums.size == ops.size) nums.add(0f)
+    // 1. Переводим в целые единицы в зависимости от фактора (100 или 1_000_000)
+    val totalUnits = (value * factor).roundToLong().absoluteValue
 
-    var idx = 0
-    while (idx < ops.size) {
-        when (ops[idx]) {
-            Operation.Mult -> {
-                nums[idx] *= nums[idx + 1]
-                ops.removeAt(idx)
-                nums.removeAt(idx + 1)
-            }
+    val intPart = totalUnits / factor
+    val fracPart = totalUnits % factor
 
-            Operation.Div -> {
-                if (nums[idx + 1] == 0f) return "∞"
-                nums[idx] /= nums[idx + 1]
-                ops.removeAt(idx)
-                nums.removeAt(idx + 1)
-            }
+    // 2. Если после округления вышел чистый ноль, убираем минус
+    if (intPart == 0L && fracPart == 0L) return "0"
 
-            else -> idx++
-        }
-    }
+    val sign = if (value < 0) "-" else ""
+    if (fracPart == 0L) return "$sign$intPart"
 
-    val res = ops.zip(nums.drop(1)).fold(nums.first()) { acc, (op, n) ->
-        if (op == Operation.Plus) acc + n else acc - n
-    }
+    // 3. Заполняем нулями слева до нужной точности и удаляем незначащие нули справа
+    val fracStr = fracPart
+        .toString()
+        .padStart(precision, '0')
+        .trimEnd('0')
 
-    return if (res == res.toLong().toFloat()) res.toLong().toString() else res.toString()
+    return "$sign$intPart.$fracStr"
 }
 
 @Composable
@@ -118,7 +101,7 @@ fun RootScreen(
     Scaffold { innerPadding ->
         BoxWithConstraints(
             modifier = modifier
-                .padding(paddingValues = innerPadding)
+                .padding(innerPadding)
                 .padding(all = PADDINGS.dp)
         ) {
             val width = maxWidth - PADDINGS.dp
@@ -126,7 +109,7 @@ fun RootScreen(
 
             val targetDisplayWidth = when (orientation) {
                 Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT)).coerceAtMost(
-                    maximumValue = width - MIN_BUTTONS_WIDTH.dp
+                    width - MIN_BUTTONS_WIDTH.dp
                 )
 
                 Orientation.Vertical -> maxWidth
@@ -134,7 +117,7 @@ fun RootScreen(
             val targetDisplayHeight = when (orientation) {
                 Orientation.Horizontal -> maxHeight
                 Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT)).coerceAtMost(
-                    maximumValue = height - MIN_BUTTONS_HEIGHT.dp
+                    height - MIN_BUTTONS_HEIGHT.dp
                 )
             }
             val targetButtonsWidth = when (orientation) {
@@ -152,173 +135,102 @@ fun RootScreen(
             val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
 
             val calculation by rootComponent.calculation.collectAsState()
-            var currentNumber by rememberSaveable { mutableStateOf(value = "") }
+            val currentInput by rootComponent.currentInput.collectAsState()
+            val lastSavedId by rootComponent.lastSavedId.collectAsState()
+            val visibleHistory by rootComponent.calculations.collectAsState() // Уже отфильтрован через combine
 
-            val onDigit: (String) -> Unit = { digit ->
-                if (calculation.stored && currentNumber.isBlank()) {
-                    if (digit == ".") currentNumber = "0"
-                    currentNumber += digit
-                } else {
-                    if (currentNumber == "0" && digit != ".") {
-                        currentNumber = digit
-                    } else {
-                        if (currentNumber.contains(".")) {
-                            if (currentNumber.length < 7) currentNumber += digit
-                        } else {
-                            if (digit == ".") {
-                                if (currentNumber.isBlank()) currentNumber += "0"
-                                currentNumber += digit
-                            } else if (currentNumber.length < 4) {
-                                currentNumber += digit
-                            }
+            val isSticky = lastSavedId != null
+
+            // ✅ Формирование строки выражения
+            val expression = buildString {
+                calculation.operations.forEachIndexed { i, op ->
+                    append("${calculation.numbers[i].formatDisplay()} ")
+                    append(
+                        when (op) {
+                            Operation.Plus -> '+'; Operation.Minus -> '-'; Operation.Mult -> '*'; Operation.Div -> '/'
                         }
-                    }
+                    )
+                    append(" ")
                 }
-            }
-
-            val onOperation: (Operation) -> Unit = { op ->
-                rootComponent.addNumber(if (currentNumber.isBlank()) 0f else currentNumber.toFloat())
-                rootComponent.addOperation(op)
-                currentNumber = ""
-            }
-
-            val onEquals: () -> Unit = {
-                if (currentNumber.isNotEmpty()) {
-                    rootComponent.addNumber(currentNumber.toFloat())
-                    rootComponent.finishCalculation()
-                    currentNumber = ""
-                }
-            }
-
-            val onBackspace: () -> Unit = {
-                if (calculation.stored && currentNumber.isBlank()) {
-                    currentNumber = "0"
+                if (isSticky) {
+                    val lastNum = if (calculation.numbers.size > calculation.operations.size)
+                        calculation.numbers.last() else 0f
+                    append("${lastNum.formatDisplay()} = ${(calculation.result as? CalculationResult.Result)?.number?.formatDisplay() ?: "Calculate error"}")
                 } else {
-                    if (currentNumber.isNotEmpty()) {
-                        currentNumber = currentNumber.dropLast(1)
-                    } else {
-                        rootComponent.removeLastSegment()
-                    }
+                    append(
+                        currentInput.ifEmpty {
+                            if (calculation.numbers.size > calculation.operations.size)
+                                calculation.numbers.last().formatDisplay() else "0"
+                        }
+                    )
                 }
             }
 
-            val historyScrollState = rememberLazyListState()
-            val nestedScrollConnection = object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource) =
-                    Offset.Zero
-
-                override fun onPostScroll(
-                    consumed: Offset,
-                    available: Offset,
-                    source: NestedScrollSource
-                ) = Offset(0f, consumed.y)
+            // ✅ Превью результата
+            val previewResult = if (isSticky) {
+                (calculation.result as? CalculationResult.Result)?.number?.formatDisplay()
+                    ?: "Error"
+            } else {
+                calculatePreview(calculation.numbers, calculation.operations, currentInput)
             }
 
             Column(
                 modifier = Modifier
-                    .width(displayWidth)
-                    .height(displayHeight)
+                    .width(displayWidth).height(displayHeight)
                     .align(Alignment.TopStart)
                     .background(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(size = BUTTON_CORNERS.dp)
+                        shape = RoundedCornerShape(BUTTON_CORNERS.dp)
                     )
-                    .nestedScroll(nestedScrollConnection)
                     .padding(horizontal = 6.dp, vertical = 4.dp)
             ) {
-                val calculations by rootComponent.calculations.collectAsState()
+                val listState = rememberLazyListState()
 
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    state = historyScrollState,
-                    verticalArrangement = Arrangement.spacedBy(
-                        2.dp,
-                        alignment = Alignment.Bottom
-                    ),
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(2.dp, alignment = Alignment.Bottom),
                     horizontalAlignment = Alignment.End
                 ) {
-                    calculations
-                        ?.let { storedResults ->
-                            items(
-                                items = storedResults.let {
-                                    if (it.isNotEmpty() && calculation.stored) it.dropLast(1) else it
-                                },
-                                key = { it.id }
-                            ) {
-                                Text(
-                                    text = buildString {
-                                        it.operations.forEachIndexed { index, operation ->
-                                            append("${it.numbers[index]} ")
-                                            append(
-                                                when (operation) {
-                                                    Operation.Plus -> "+"
-                                                    Operation.Minus -> "-"
-                                                    Operation.Mult -> "*"
-                                                    Operation.Div -> "/"
-                                                }
-                                            )
-                                            append(" ")
-                                        }
-                                        append("${it.numbers.last()} = ${it.result ?: "Calculate error"}")
+                    visibleHistory?.let { storedResults ->
+                        items(items = storedResults, key = { it.id }) { calc ->
+                            Text(
+                                text = buildString {
+                                    calc.operations.forEachIndexed { index, op ->
+                                        append("${calc.numbers[index].formatDisplay()} ")
+                                        append(
+                                            when (op) {
+                                                Operation.Plus -> "+"; Operation.Minus -> "-"; Operation.Mult -> "*"; Operation.Div -> "/"
+                                            }
+                                        )
+                                        append("  ")
                                     }
+                                    append(
+                                        "${
+                                            calc.numbers.last().formatDisplay()
+                                        } = ${calc.result?.formatDisplay() ?: "Error"}"
+                                    )
+                                },
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(
+                                        alpha = 0.6f
+                                    )
                                 )
-                            }
-                        }
-                        ?: item {
-                            Text("Loading...")
-                        }
-                }
-
-                val numbers = calculation.numbers
-                val operations = calculation.operations
-                val isNewCalculation = calculation.stored && currentNumber.isNotEmpty()
-
-                val expression = buildString {
-                    if (!isNewCalculation) {
-                        for (i in operations.indices) {
-                            append("${numbers[i]} ")
-                            append(
-                                when (operations[i]) {
-                                    Operation.Plus -> '+'
-                                    Operation.Minus -> '-'
-                                    Operation.Mult -> '*'
-                                    Operation.Div -> '/'
-                                }
                             )
-                            append(" ")
                         }
+                    } ?: item {
+                        Text(
+                            "Loading...",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
                     }
-                    append(
-                        currentNumber.ifEmpty {
-                            if (!isNewCalculation && numbers.size > operations.size) {
-                                numbers.last()
-                                    .toString()
-                            } else {
-                                "0"
-                            }
-                        }
-                    )
                 }
-
-                val previewResult = calculatePreview(
-                    numbers = if (isNewCalculation) emptyList() else numbers,
-                    operations = if (isNewCalculation) emptyList() else operations,
-                    currentNumberStr = currentNumber
-                )
 
                 Text(
                     text = buildAnnotatedString {
                         append(expression)
                         appendLine()
-                        withStyle(
-                            style = SpanStyle(
-                                fontWeight = if (calculation.stored && currentNumber.isBlank()) {
-                                    FontWeight.Bold
-                                } else {
-                                    null
-                                }
-                            )
-                        ) {
+                        withStyle(SpanStyle(fontWeight = if (isSticky) FontWeight.Bold else null)) {
                             append(previewResult)
                         }
                     },
@@ -329,17 +241,52 @@ fun RootScreen(
             }
 
             StaticCalculatorGrid(
-                modifier = Modifier
-                    .width(buttonsWidth)
-                    .height(buttonsHeight)
+                modifier = Modifier.width(buttonsWidth).height(buttonsHeight)
                     .align(Alignment.BottomEnd),
-                onDigit = onDigit,
-                onOperation = onOperation,
-                onEquals = onEquals,
-                onBackspace = onBackspace
+                onDigit = rootComponent::appendDigit,
+                onOperation = rootComponent::applyOperation,
+                onEquals = rootComponent::calculateResult,
+                onBackspace = rootComponent::backspace
             )
         }
     }
+}
+
+private fun calculatePreview(
+    numbers: List<Float>,
+    operations: List<Operation>,
+    currentInput: String
+): String {
+    if (currentInput.isEmpty() && numbers.isEmpty()) return "0"
+    val currentNum = currentInput.toFloatOrNull() ?: 0f
+    val allNumbers = if (currentInput.isNotEmpty()) {
+        if (numbers.size > operations.size) numbers.dropLast(1) + currentNum else numbers + currentNum
+    } else numbers
+
+    if (allNumbers.isEmpty()) return "0"
+    if (allNumbers.size == 1 && operations.isEmpty()) return allNumbers[0].formatDisplay()
+
+    val nums = allNumbers.toMutableList()
+    val ops = operations.toMutableList()
+    var idx = 0
+    while (idx < ops.size) {
+        when (ops[idx]) {
+            Operation.Mult -> {
+                nums[idx] *= nums[idx + 1]; nums.removeAt(idx + 1); ops.removeAt(idx)
+            }
+
+            Operation.Div -> {
+                if (nums[idx + 1] == 0f) return "∞"; nums[idx] /= nums[idx + 1]; nums.removeAt(idx + 1); ops.removeAt(
+                    idx
+                )
+            }
+
+            else -> idx++
+        }
+    }
+    val res = ops.zip(nums.drop(1))
+        .fold(nums.first()) { acc, (op, n) -> if (op == Operation.Plus) acc + n else acc - n }
+    return res.formatDisplay()
 }
 
 @Composable
@@ -352,8 +299,8 @@ private fun StaticCalculatorGrid(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val cellWidth =
-            (maxWidth - SPACE_BETWEEN_BUTTONS.dp * BUTTONS_COLUMNS.dec()) / BUTTONS_COLUMNS
-        val cellHeight = (maxHeight - SPACE_BETWEEN_BUTTONS.dp * BUTTONS_ROWS.dec()) / BUTTONS_ROWS
+            (maxWidth - SPACE_BETWEEN_BUTTONS.dp * (BUTTONS_COLUMNS - 1)) / BUTTONS_COLUMNS
+        val cellHeight = (maxHeight - SPACE_BETWEEN_BUTTONS.dp * (BUTTONS_ROWS - 1)) / BUTTONS_ROWS
 
         @Composable
         fun GridButton(
@@ -366,41 +313,32 @@ private fun StaticCalculatorGrid(
         ) {
             val width = (cellWidth * colSpan) + (SPACE_BETWEEN_BUTTONS.dp * (colSpan - 1))
             val height = (cellHeight * rowSpan) + (SPACE_BETWEEN_BUTTONS.dp * (rowSpan - 1))
-
             Button(
                 onClick = onClick,
-                modifier = Modifier
-                    .offset(
-                        x = (cellWidth + SPACE_BETWEEN_BUTTONS.dp) * col,
-                        y = (cellHeight + SPACE_BETWEEN_BUTTONS.dp) * row
-                    )
-                    .size(width, height),
+                modifier = Modifier.offset(
+                    x = (cellWidth + SPACE_BETWEEN_BUTTONS.dp) * col,
+                    y = (cellHeight + SPACE_BETWEEN_BUTTONS.dp) * row
+                ).size(width, height),
                 shape = RoundedCornerShape(BUTTON_CORNERS.dp),
                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
-            ) {
-                Text(text)
-            }
+            ) { Text(text) }
         }
 
         GridButton(0, 0, text = "*") { onOperation(Operation.Mult) }
         GridButton(0, 1, text = "/") { onOperation(Operation.Div) }
         GridButton(0, 2, text = "-") { onOperation(Operation.Minus) }
         GridButton(0, 3, text = "←") { onBackspace() }
-
         GridButton(1, 0, text = "7") { onDigit("7") }
         GridButton(1, 1, text = "8") { onDigit("8") }
         GridButton(1, 2, text = "9") { onDigit("9") }
         GridButton(1, 3, rowSpan = 2, text = "+") { onOperation(Operation.Plus) }
-
         GridButton(2, 0, text = "4") { onDigit("4") }
         GridButton(2, 1, text = "5") { onDigit("5") }
         GridButton(2, 2, text = "6") { onDigit("6") }
-
         GridButton(3, 0, text = "1") { onDigit("1") }
         GridButton(3, 1, text = "2") { onDigit("2") }
         GridButton(3, 2, text = "3") { onDigit("3") }
         GridButton(3, 3, rowSpan = 2, text = "=") { onEquals() }
-
         GridButton(4, 0, colSpan = 2, text = "0") { onDigit("0") }
         GridButton(4, 2, text = ".") { onDigit(".") }
     }
@@ -413,10 +351,13 @@ private fun RootScreenPreview() {
         rootComponent = object : RootComponent {
             override val calculations = MutableStateFlow(value = null)
             override val calculation = MutableStateFlow(value = Calculation())
-            override fun addOperation(operation: Operation) {}
-            override fun finishCalculation() {}
-            override fun addNumber(number: Float) {}
-            override fun removeLastSegment() = 0f
+            override val currentInput = MutableStateFlow(value = "0.0")
+            override val lastSavedId = MutableStateFlow(value = null)
+
+            override fun appendDigit(digit: String) {}
+            override fun applyOperation(operation: Operation) {}
+            override fun calculateResult() {}
+            override fun backspace() {}
         }
     )
 }
