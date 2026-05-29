@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import org.example.calculator_hard.presentation.ui.theme.AppTheme
 import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 
+actual val dynamicColorsSupport = true
+
+
 @Preview(wallpaper = Wallpapers.GREEN_DOMINATED_EXAMPLE)
 @Composable
 private fun Preview() {

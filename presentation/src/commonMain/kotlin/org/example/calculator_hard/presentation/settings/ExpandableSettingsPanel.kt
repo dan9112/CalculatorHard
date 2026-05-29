@@ -129,23 +129,6 @@ fun ExpandableSettingsPanel(
                     }
                 )
 
-                // Кнопка Контрастности
-                SettingIconButton(
-                    icon = contrastIcon,
-                    contentDescription = contrastDescription,
-                    onClick = {
-                        contrast
-                            .second
-                            .invoke(
-                                when (contrastState) {
-                                    ContrastLevel.Normal -> ContrastLevel.Medium
-                                    ContrastLevel.Medium -> ContrastLevel.High
-                                    ContrastLevel.High -> ContrastLevel.Normal
-                                }
-                            )
-                    }
-                )
-
                 // Кнопка Адаптивных цветов
                 dynamic?.let { (isDynamicColor, invoke) ->
                     val dynamicColorIcon =
@@ -162,14 +145,35 @@ fun ExpandableSettingsPanel(
                         onClick = { invoke(!isDynamicColor) }
                     )
                 }
+
+                // Кнопка Контрастности
+                SettingIconButton(
+                    icon = contrastIcon,
+                    enabled = dynamic?.first != true,
+                    contentDescription = contrastDescription,
+                    onClick = {
+                        contrast
+                            .second
+                            .invoke(
+                                when (contrastState) {
+                                    ContrastLevel.Normal -> ContrastLevel.Medium
+                                    ContrastLevel.Medium -> ContrastLevel.High
+                                    ContrastLevel.High -> ContrastLevel.Normal
+                                }
+                            )
+                    }
+                )
             }
         }
     }
 }
 
+expect val dynamicColorsSupport: Boolean
+
 @Composable
 private fun SettingIconButton(
     icon: ImageVector,
+    enabled: Boolean = true,
     contentDescription: String,
     onClick: () -> Unit
 ) {
@@ -177,15 +181,15 @@ private fun SettingIconButton(
         modifier = Modifier
             .size(40.dp)
             .clip(shape = CircleShape)
-            .background(color = MaterialTheme.colorScheme.surface)
-            .clickable(role = Role.Button) { onClick() }
+            .background(color = MaterialTheme.colorScheme.secondary.copy(alpha = if (enabled) 1f else 0.6f))
+            .clickable(enabled = enabled, role = Role.Button) { onClick() }
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null, // Текст уже привязан к Box через semantics для корректного фокуса
-            tint = MaterialTheme.colorScheme.secondary,
+            tint = MaterialTheme.colorScheme.onSecondary.copy(alpha = if (enabled) 1f else 0.6f),
             modifier = Modifier.size(24.dp)
         )
     }
@@ -198,7 +202,7 @@ private fun AnimatedMenuArrowIcon(
     contentDescription: String,
     onClick: () -> Unit
 ) {
-    val iconColor = MaterialTheme.colorScheme.primary
+    val iconColor = MaterialTheme.colorScheme.onPrimary
     // 1. Прогресс морфинга крыльев (0f - бургер, 1f - стрелка)
     val morphProgress by animateFloatAsState(
         targetValue = if (isMenuState) 0f else 1f,
@@ -221,9 +225,9 @@ private fun AnimatedMenuArrowIcon(
 
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(45.dp)
             .clip(CircleShape)
-            .background(color = MaterialTheme.colorScheme.onPrimary)
+            .background(color = MaterialTheme.colorScheme.primary)
             .rotate(rotationAngle) // Поворот всей кнопки
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

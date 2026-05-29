@@ -12,7 +12,6 @@ import com.arkivanov.decompose.defaultComponentContext
 import org.example.calculator_hard.presentation.App
 import org.example.calculator_hard.presentation.RootScreen
 import org.example.calculator_hard.presentation.createRootComponent
-import org.example.calculator_hard.presentation.ui.theme.AppTheme
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,12 +21,10 @@ class MainActivity : AppCompatActivity() {
         val rootComponent = createRootComponent(componentContext = defaultComponentContext())
 
         setContent {
-            AppTheme {
-                RootScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    rootComponent = rootComponent
-                )
-            }
+            RootScreen(
+                modifier = Modifier.fillMaxSize(),
+                rootComponent = rootComponent
+            )
         }
     }
 }
