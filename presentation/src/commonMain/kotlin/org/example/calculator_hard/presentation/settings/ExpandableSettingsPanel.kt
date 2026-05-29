@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -47,6 +48,7 @@ import org.jetbrains.compose.resources.stringResource
 fun ExpandableSettingsPanel(
     modifier: Modifier = Modifier,
     theme: Pair<Boolean?, (Boolean?) -> Unit>,
+    buttonShape: Shape = CircleShape,
     contrast: Pair<ContrastLevel, (ContrastLevel) -> Unit>,
     dynamic: Pair<Boolean, (Boolean) -> Unit>? = null
 ) {
@@ -88,12 +90,13 @@ fun ExpandableSettingsPanel(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-//            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+//            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
 //            .padding(4.dp)
     ) {
         // Анимированная кнопка-бургер/стрелка
         AnimatedMenuArrowIcon(
             isMenuState = !isMenuOpen,
+            shape = buttonShape,
             contentDescription = menuDescription,
             onClick = { isMenuOpen = !isMenuOpen }
         )
@@ -115,6 +118,7 @@ fun ExpandableSettingsPanel(
                 // Кнопка Темы
                 SettingIconButton(
                     icon = themeIcon,
+                    shape = buttonShape,
                     contentDescription = themeDescription,
                     onClick = {
                         theme
@@ -141,6 +145,7 @@ fun ExpandableSettingsPanel(
 
                     SettingIconButton(
                         icon = dynamicColorIcon,
+                        shape = buttonShape,
                         contentDescription = dynamicColorDescription,
                         onClick = { invoke(!isDynamicColor) }
                     )
@@ -149,6 +154,7 @@ fun ExpandableSettingsPanel(
                 // Кнопка Контрастности
                 SettingIconButton(
                     icon = contrastIcon,
+                    shape = buttonShape,
                     enabled = dynamic?.first != true,
                     contentDescription = contrastDescription,
                     onClick = {
@@ -173,6 +179,7 @@ expect val dynamicColorsSupport: Boolean
 @Composable
 private fun SettingIconButton(
     icon: ImageVector,
+    shape: Shape,
     enabled: Boolean = true,
     contentDescription: String,
     onClick: () -> Unit
@@ -180,7 +187,7 @@ private fun SettingIconButton(
     Box(
         modifier = Modifier
             .size(40.dp)
-            .clip(shape = CircleShape)
+            .clip(shape = shape)
             .background(color = MaterialTheme.colorScheme.secondary.copy(alpha = if (enabled) 1f else 0.6f))
             .clickable(enabled = enabled, role = Role.Button) { onClick() }
             .semantics { this.contentDescription = contentDescription },
@@ -198,6 +205,7 @@ private fun SettingIconButton(
 @Composable
 private fun AnimatedMenuArrowIcon(
     modifier: Modifier = Modifier,
+    shape: Shape,
     isMenuState: Boolean,
     contentDescription: String,
     onClick: () -> Unit
@@ -226,7 +234,7 @@ private fun AnimatedMenuArrowIcon(
     Box(
         modifier = modifier
             .size(45.dp)
-            .clip(CircleShape)
+            .clip(shape)
             .background(color = MaterialTheme.colorScheme.primary)
             .rotate(rotationAngle) // Поворот всей кнопки
             .clickable(

@@ -343,8 +343,8 @@ fun RootScreen(
                 ExpandableSettingsPanel(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(top = padding.calculateTopPadding())
-                        .padding(all = 8.dp),
+                        .padding(top = padding.calculateTopPadding()),
+                    buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
                     theme = theme to { theme = it },
                     contrast = contrast to { contrast = it },
                     dynamic = dynamic?.let { state ->
