@@ -5,11 +5,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -20,52 +19,25 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
-import org.example.calculator_hard.presentation.ui.theme.dynamicColorScheme
+import org.example.calculator_hard.presentation.ui.theme.AppTheme
+import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 
 @Preview(wallpaper = Wallpapers.GREEN_DOMINATED_EXAMPLE)
 @Composable
 private fun Preview() {
     var theme by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
-    var contrast by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
+    var contrast by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.ordinal },
+            restore = { ContrastLevel.entries[it] }
+        )
+    ) { mutableStateOf(value = ContrastLevel.Normal) }
     var dynamic by rememberSaveable { mutableStateOf(value = true) }
 
-    // todo: replace with custom theme!
-    MaterialTheme(
-        colorScheme = when (theme) {
-            true -> {
-                if (dynamic) {
-                    dynamicColorScheme(darkTheme = true) ?: darkColorScheme()
-                } else {
-                    darkColorScheme()
-                }
-            }
-
-            false -> {
-                if (dynamic) {
-                    dynamicColorScheme(darkTheme = false)
-                        ?: lightColorScheme()
-                } else {
-                    lightColorScheme()
-                }
-            }
-
-            null -> {
-                if (dynamic) {
-                    dynamicColorScheme(darkTheme = isSystemInDarkTheme())
-                        ?: if (isSystemInDarkTheme()) {
-                            darkColorScheme()
-                        } else {
-                            lightColorScheme()
-                        }
-                } else {
-                    if (isSystemInDarkTheme()) {
-                        darkColorScheme()
-                    } else {
-                        lightColorScheme()
-                    }
-                }
-            }
-        }
+    AppTheme(
+        darkTheme = theme ?: isSystemInDarkTheme(),
+        contrastLevel = contrast,
+        dynamicColor = dynamic
     ) {
         Box(
             modifier = Modifier
@@ -107,9 +79,9 @@ private fun Preview() {
                         withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.secondary)) {
                             append(
                                 when (contrast) {
-                                    true -> "max"
-                                    false -> "high"
-                                    null -> "default"
+                                    ContrastLevel.High -> "max"
+                                    ContrastLevel.Medium -> "high"
+                                    ContrastLevel.Normal -> "default"
                                 }
                             )
                         }

@@ -12,8 +12,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Circle
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +39,15 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import calculatorhard.presentation.generated.resources.*
+import org.example.calculator_hard.presentation.ui.theme.AppTheme
+import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun ExpandableSettingsPanel(
     modifier: Modifier = Modifier,
     theme: Pair<Boolean?, (Boolean?) -> Unit>,
-    contrast: Pair<Boolean?, (Boolean?) -> Unit>,
+    contrast: Pair<ContrastLevel, (ContrastLevel) -> Unit>,
     dynamic: Pair<Boolean, (Boolean) -> Unit>? = null
 ) {
     var isMenuOpen by remember { mutableStateOf(value = false) }
@@ -64,14 +69,14 @@ fun ExpandableSettingsPanel(
     }
 
     val contrastIcon = when (contrastState) {
-        null -> Icons.Outlined.Circle
-        false -> Icons.Filled.Contrast // Полу-закрашенное солнце (символ изменения градации)
-        true -> Icons.Filled.Circle      // Полностью залитый круг (символ максимального контраста)
+        ContrastLevel.Normal -> Icons.Outlined.Circle
+        ContrastLevel.Medium -> Icons.Filled.Contrast // Полу-закрашенное солнце (символ изменения градации)
+        ContrastLevel.High -> Icons.Filled.Circle      // Полностью залитый круг (символ максимального контраста)
     }
     val contrastDescription = when (contrastState) {
-        null -> stringResource(resource = Res.string.contrast_normal)
-        false -> stringResource(resource = Res.string.contrast_high)
-        true -> stringResource(resource = Res.string.contrast_max)
+        ContrastLevel.Normal -> stringResource(resource = Res.string.contrast_normal)
+        ContrastLevel.Medium -> stringResource(resource = Res.string.contrast_high)
+        ContrastLevel.High -> stringResource(resource = Res.string.contrast_max)
     }
 
     val menuDescription = if (isMenuOpen) {
@@ -83,8 +88,8 @@ fun ExpandableSettingsPanel(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), CircleShape)
-            .padding(4.dp)
+//            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+//            .padding(4.dp)
     ) {
         // Анимированная кнопка-бургер/стрелка
         AnimatedMenuArrowIcon(
@@ -133,9 +138,9 @@ fun ExpandableSettingsPanel(
                             .second
                             .invoke(
                                 when (contrastState) {
-                                    null -> false
-                                    false -> true
-                                    true -> null
+                                    ContrastLevel.Normal -> ContrastLevel.Medium
+                                    ContrastLevel.Medium -> ContrastLevel.High
+                                    ContrastLevel.High -> ContrastLevel.Normal
                                 }
                             )
                     }
@@ -172,7 +177,7 @@ private fun SettingIconButton(
         modifier = Modifier
             .size(40.dp)
             .clip(shape = CircleShape)
-            .background(color = MaterialTheme.colorScheme.secondaryContainer)
+            .background(color = MaterialTheme.colorScheme.surface)
             .clickable(role = Role.Button) { onClick() }
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center
@@ -180,7 +185,7 @@ private fun SettingIconButton(
         Icon(
             imageVector = icon,
             contentDescription = null, // Текст уже привязан к Box через semantics для корректного фокуса
-            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            tint = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.size(24.dp)
         )
     }
@@ -193,7 +198,7 @@ private fun AnimatedMenuArrowIcon(
     contentDescription: String,
     onClick: () -> Unit
 ) {
-    val iconColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val iconColor = MaterialTheme.colorScheme.primary
     // 1. Прогресс морфинга крыльев (0f - бургер, 1f - стрелка)
     val morphProgress by animateFloatAsState(
         targetValue = if (isMenuState) 0f else 1f,
@@ -218,7 +223,7 @@ private fun AnimatedMenuArrowIcon(
         modifier = modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(color = MaterialTheme.colorScheme.primaryContainer)
+            .background(color = MaterialTheme.colorScheme.onPrimary)
             .rotate(rotationAngle) // Поворот всей кнопки
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -315,27 +320,17 @@ private fun AnimatedMenuArrowIcon(
 @Composable
 private fun Preview() {
     var theme by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
-    var contrast by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
+    var contrast by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.ordinal },
+            restore = { ContrastLevel.entries[it] }
+        )
+    ) { mutableStateOf(value = ContrastLevel.Normal) }
 
     // todo: replace with custom theme!
-    MaterialTheme(
-        colorScheme = when (theme) {
-            true -> {
-                darkColorScheme()
-            }
-
-            false -> {
-                lightColorScheme()
-            }
-
-            null -> {
-                if (isSystemInDarkTheme()) {
-                    darkColorScheme()
-                } else {
-                    lightColorScheme()
-                }
-            }
-        }
+    AppTheme(
+        darkTheme = theme ?: isSystemInDarkTheme(),
+        contrastLevel = contrast
     ) {
         Box(
             modifier = Modifier
@@ -357,9 +352,9 @@ private fun Preview() {
                     withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.secondary)) {
                         append(
                             when (contrast) {
-                                true -> "max"
-                                false -> "high"
-                                null -> "default"
+                                ContrastLevel.High -> "max"
+                                ContrastLevel.Medium -> "high"
+                                ContrastLevel.Normal -> "default"
                             }
                         )
                     }
