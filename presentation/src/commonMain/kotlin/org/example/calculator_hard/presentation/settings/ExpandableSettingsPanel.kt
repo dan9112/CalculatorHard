@@ -52,7 +52,7 @@ fun ExpandableSettingsPanel(
     contrast: Pair<ContrastLevel, (ContrastLevel) -> Unit>,
     dynamic: Pair<Boolean, (Boolean) -> Unit>? = null
 ) {
-    var isMenuOpen by remember { mutableStateOf(value = false) }
+    var isMenuOpen by rememberSaveable { mutableStateOf(value = false) }
 
     // Состояния настроек
     val themeState = theme.first   // null: Системная, false: Светлая, true: Тёмная
@@ -90,8 +90,6 @@ fun ExpandableSettingsPanel(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-//            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
-//            .padding(4.dp)
     ) {
         // Анимированная кнопка-бургер/стрелка
         AnimatedMenuArrowIcon(
@@ -107,7 +105,7 @@ fun ExpandableSettingsPanel(
             enter = expandHorizontally(animationSpec = tween(durationMillis = 300)) + fadeIn(
                 animationSpec = tween(durationMillis = 300)
             ),
-            exit = shrinkHorizontally(animationSpec = tween(delayMillis = 300)) + fadeOut(
+            exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300)) + fadeOut(
                 animationSpec = tween(durationMillis = 300)
             )
         ) {
