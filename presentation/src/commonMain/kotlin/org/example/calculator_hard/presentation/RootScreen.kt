@@ -3,7 +3,17 @@ package org.example.calculator_hard.presentation
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -13,8 +23,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -137,7 +149,9 @@ fun RootScreen(
             val calculation by rootComponent.calculation.collectAsState()
             val currentInput by rootComponent.currentInput.collectAsState()
             val lastSavedId by rootComponent.lastSavedId.collectAsState()
-            val visibleHistory by rootComponent.calculations.collectAsState() // Уже отфильтрован через combine
+            val visibleHistory by rootComponent.calculations.collectAsState()
+            val isLoading by rootComponent.isLoadingMore.collectAsState()
+            val hasMore by rootComponent.hasMore.collectAsState()
 
             val isSticky = lastSavedId != null
 
@@ -176,52 +190,56 @@ fun RootScreen(
 
             Column(
                 modifier = Modifier
-                    .width(displayWidth).height(displayHeight)
+                    .width(displayWidth)
+                    .height(displayHeight)
                     .align(Alignment.TopStart)
                     .background(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(BUTTON_CORNERS.dp)
+                        shape = RoundedCornerShape(size = BUTTON_CORNERS.dp)
                     )
                     .padding(horizontal = 6.dp, vertical = 4.dp)
             ) {
                 val listState = rememberLazyListState()
 
+                LaunchedEffect(listState, hasMore, isLoading) {
+                    snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+                        .collect { lastVisibleIndex ->
+                            if (lastVisibleIndex != null && lastVisibleIndex >= visibleHistory.size - 3 && hasMore && !isLoading) {
+                                rootComponent.loadMore()
+                            }
+                        }
+                }
+
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     state = listState,
+                    reverseLayout = true,
                     verticalArrangement = Arrangement.spacedBy(2.dp, alignment = Alignment.Bottom),
                     horizontalAlignment = Alignment.End
                 ) {
-                    visibleHistory?.let { storedResults ->
-                        items(items = storedResults, key = { it.id }) { calc ->
-                            Text(
-                                text = buildString {
-                                    calc.operations.forEachIndexed { index, op ->
-                                        append("${calc.numbers[index].formatDisplay()} ")
-                                        append(
-                                            when (op) {
-                                                Operation.Plus -> "+"; Operation.Minus -> "-"; Operation.Mult -> "*"; Operation.Div -> "/"
-                                            }
-                                        )
-                                        append("  ")
-                                    }
+                    items(items = visibleHistory, key = { it.id }) { calc ->
+                        Text(
+                            text = buildString {
+                                calc.operations.forEachIndexed { index, op ->
+                                    append("${calc.numbers[index].formatDisplay()} ")
                                     append(
-                                        "${
-                                            calc.numbers.last().formatDisplay()
-                                        } = ${calc.result?.formatDisplay() ?: "Error"}"
+                                        when (op) {
+                                            Operation.Plus -> "+"; Operation.Minus -> "-"; Operation.Mult -> "*"; Operation.Div -> "/"
+                                        }
                                     )
-                                },
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface.copy(
-                                        alpha = 0.6f
-                                    )
+                                    append("  ")
+                                }
+                                append(
+                                    "${
+                                        calc.numbers.last().formatDisplay()
+                                    } = ${calc.result?.formatDisplay() ?: "Error"}"
+                                )
+                            },
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.6f
                                 )
                             )
-                        }
-                    } ?: item {
-                        Text(
-                            "Loading...",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                     }
                 }
@@ -349,15 +367,20 @@ private fun StaticCalculatorGrid(
 private fun RootScreenPreview() {
     RootScreen(
         rootComponent = object : RootComponent {
-            override val calculations = MutableStateFlow(value = null)
+            override val calculations =
+                MutableStateFlow<List<org.example.calculator_hard.domain.Calculation>>(value = emptyList())
             override val calculation = MutableStateFlow(value = Calculation())
             override val currentInput = MutableStateFlow(value = "0.0")
             override val lastSavedId = MutableStateFlow(value = null)
+            override val isLoadingMore = MutableStateFlow(value = false)
+            override val hasMore = MutableStateFlow(value = false)
 
             override fun appendDigit(digit: String) {}
             override fun applyOperation(operation: Operation) {}
             override fun calculateResult() {}
             override fun backspace() {}
+            override fun loadMore() {}
+            override fun deleteCalculation(id: Long) {}
         }
     )
 }

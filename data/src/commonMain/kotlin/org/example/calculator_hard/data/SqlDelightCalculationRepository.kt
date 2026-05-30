@@ -15,15 +15,18 @@ import org.example.calculator_hard.domain.Calculation
 import org.example.calculator_hard.domain.CalculationRepository
 import org.example.calculator_hard.domain.Operation
 
-class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQLDelightDatabase>) :
-    CalculationRepository {
+class SqlDelightCalculationRepository(
+    private val databaseDeferred: Deferred<SQLDelightDatabase>
+) : CalculationRepository {
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    override val calculations: Flow<List<Calculation>> = channelFlow {
-        // 1. Ждем базу данных ОДИН раз при старте подписки
+    override fun getCalculationsFlow(limit: Int, offset: Int): Flow<List<Calculation>> =
+        channelFlow {
+            // 1. Ждем инициализацию БД
         val db = databaseDeferred.await()
 
-        // 2. Напрямую слушаем обновления SQLDelight
-        db.calculationsQueries.getAllCalculations()
+            // 2. Подписываемся на paginated query
+            db.calculationsQueries.getCalculations(limit.toLong(), offset.toLong())
             .asFlow()
             .mapToList(context = Dispatchers.Default)
             .map { list ->
@@ -36,33 +39,30 @@ class SqlDelightCalculationRepository(private val databaseDeferred: Deferred<SQL
                     )
                 }
             }
-            // 3. Отправляем все обновления в канал
-            .collectLatest { transformedList ->
-                send(transformedList)
-            }
+                // 3. Эмитим обновления в поток
+                .collectLatest { send(it) }
     }
 
     override suspend fun addCalculation(
         numbers: List<Float>,
         operations: List<Operation>,
         result: Double?
-    ): Long = withContext(context = Dispatchers.Default) {
+    ): Long = withContext(Dispatchers.Default) {
         val db = databaseDeferred.await()
+        val queries = db.calculationsQueries
 
-        db
-            .calculationsQueries
-            .transactionWithResult {
-                db
-                    .calculationsQueries
-                    .insertCalculation(
-                        numbers = numbers,
-                        operations = operations,
-                        result = result
-                    )
-                db
-                    .calculationsQueries
-                    .lastInsertId()
-                    .executeAsOne()
-            }
+        queries.transactionWithResult {
+            queries.insertCalculation(
+                numbers = numbers,
+                operations = operations,
+                result = result
+            )
+            queries.lastInsertId().executeAsOne()
+        }
+    }
+
+    override suspend fun deleteCalculationById(id: Long): Unit = withContext(Dispatchers.Default) {
+        val db = databaseDeferred.await()
+        db.calculationsQueries.deleteCalculationById(id)
     }
 }

@@ -16,5 +16,11 @@ VALUES (:numbers, :operations, :result);
 lastInsertId:
 SELECT last_insert_rowid();
 
-getAllCalculations:
-SELECT id, numbers, operations, result FROM Calculations;
+getCalculations:
+SELECT id, numbers, operations, result
+FROM Calculations
+ORDER BY id DESC
+LIMIT :limit OFFSET :offset;
+
+deleteCalculationById:
+DELETE FROM Calculations WHERE id = :id;

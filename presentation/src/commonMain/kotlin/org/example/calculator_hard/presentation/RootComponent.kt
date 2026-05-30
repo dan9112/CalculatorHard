@@ -2,42 +2,90 @@ package org.example.calculator_hard.presentation
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.example.calculator_hard.domain.CalculationRepository
 import org.example.calculator_hard.domain.Operation
 import org.example.calculator_hard.domain.Calculation as DomainCalculation
 
 interface RootComponent {
-    val calculations: StateFlow<List<DomainCalculation>?> // Отфильтрованный список
+    val calculations: StateFlow<List<DomainCalculation>> // Отфильтрованный список
     val calculation: StateFlow<Calculation>
     val currentInput: StateFlow<String>
     val lastSavedId: StateFlow<Long?>
+
+    val isLoadingMore: StateFlow<Boolean>
+    val hasMore: StateFlow<Boolean>
 
     fun appendDigit(digit: String)
     fun applyOperation(operation: Operation)
     fun calculateResult()
     fun backspace()
+    fun loadMore()
+    fun deleteCalculation(id: Long)
 }
 
 private class RootComponentImpl(
     componentContext: ComponentContext,
     private val calculationRepository: CalculationRepository
 ) : RootComponent, ComponentContext by componentContext {
-
     private val componentScope = componentContext.coroutineScope()
 
     private val _lastSavedId = MutableStateFlow<Long?>(value = null)
     override val lastSavedId = _lastSavedId.asStateFlow()
 
+    private val _allCalculations = MutableStateFlow<List<DomainCalculation>>(value = emptyList())
+    private val _isLoadingMore = MutableStateFlow(value = false)
+    private val _hasMore = MutableStateFlow(value = true)
+
+    override val isLoadingMore = _isLoadingMore.asStateFlow()
+    override val hasMore = _hasMore.asStateFlow()
+
+    private var offset = 0
+    private val limit = 30
+
+    init {
+        loadMore()
+    }
+
     override val calculations = combine(
-        calculationRepository.calculations,
+        _allCalculations,
         lastSavedId
     ) { list, savedId ->
-        if (savedId != null && list.isNotEmpty() && list.last().id == savedId) {
-            list.dropLast(1)
+        // Т.к. ORDER BY id DESC, последний сохранённый элемент всегда в начале (index 0)
+        if (savedId != null && list.isNotEmpty() && list.first().id == savedId) {
+            list.drop(1)
         } else list
-    }.stateIn(scope = componentScope, started = SharingStarted.Eagerly, initialValue = null)
+    }.stateIn(scope = componentScope, started = SharingStarted.Eagerly, initialValue = emptyList())
+
+    override fun loadMore() {
+        if (_isLoadingMore.value || !_hasMore.value) return
+        componentScope.launch {
+            _isLoadingMore.value = true
+            try {
+                // Берём первую эмиссию потока для текущей страницы
+                val page = calculationRepository.getCalculationsFlow(limit, offset).first()
+
+                if (page.isNotEmpty()) {
+                    _allCalculations.update { it + page }
+                    offset += limit
+                    // Если пришло меньше элементов, чем лимит → значит, страница последняя
+                    if (page.size < limit) _hasMore.value = false
+                } else {
+                    _hasMore.value = false
+                }
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
+    }
 
     private val _calculation = MutableStateFlow(Calculation())
     override val calculation = _calculation.asStateFlow()
@@ -135,7 +183,6 @@ private class RootComponentImpl(
             result = result
         )
 
-        // ✅ Асинхронное сохранение + получение ID
         componentScope.launch {
             if (result is CalculationResult.Result) {
                 val newId = calculationRepository.addCalculation(
@@ -174,6 +221,13 @@ private class RootComponentImpl(
                     )
                 }
             }
+        }
+    }
+
+    override fun deleteCalculation(id: Long) {
+        componentScope.launch {
+            calculationRepository.deleteCalculationById(id)
+            _allCalculations.update { calc -> calc.filter { it.id != id } }
         }
     }
 }
