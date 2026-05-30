@@ -37,6 +37,7 @@ kotlin {
 
             api(libs.decompose.core)
             implementation(libs.essenty.lifecycle)
+            implementation(libs.essenty.lifecycle.coroutines)
             api(libs.decompose.compose)
 
             implementation(libs.material.icons.extended)

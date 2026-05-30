@@ -17,8 +17,8 @@ import org.example.calculator_hard.presentation.MIN_SCREEN_HORIZONTAL_WIDTH
 import org.example.calculator_hard.presentation.MIN_SCREEN_VERTICAL_HEIGHT
 import org.example.calculator_hard.presentation.MIN_SCREEN_VERTICAL_WIDTH
 import org.example.calculator_hard.presentation.RootScreen
-import org.example.calculator_hard.presentation.createRootComponent
 import org.example.calculator_hard.presentation.rememberOrientation
+import org.example.calculator_hard.shared.createRootComponent
 import org.example.calculator_hard.shared.startKoin
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.Event
@@ -30,7 +30,7 @@ fun main() {
     startKoin()
     val lifecycle = LifecycleRegistry()
     val rootComponent = createRootComponent(
-        componentContext = DefaultComponentContext(lifecycle = lifecycle)
+        componentContext = DefaultComponentContext(lifecycle = lifecycle),
     )
     lifecycle.attachToDocument()
 
@@ -70,7 +70,6 @@ private fun LifecycleRegistry.attachToDocument() {
         if (getVisibilityState() == "visible") resume() else stop()
     }
 
-    // Применяем состояние при инициализации
     if (getVisibilityState() == "visible") resume() else stop()
 
     document.addEventListener("visibilitychange", callback)

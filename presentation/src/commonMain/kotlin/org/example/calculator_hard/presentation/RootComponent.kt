@@ -1,154 +1,252 @@
 package org.example.calculator_hard.presentation
 
+import androidx.compose.runtime.snapshotFlow
 import com.arkivanov.decompose.ComponentContext
+import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlin.math.absoluteValue
+import kotlinx.coroutines.launch
+import org.example.calculator_hard.domain.CalculationRepository
+import org.example.calculator_hard.domain.Operation
+import org.example.calculator_hard.domain.PageData
+import org.example.calculator_hard.domain.Calculation as DomainCalculation
 
 interface RootComponent {
+    val calculations: StateFlow<List<DomainCalculation>>
     val calculation: StateFlow<Calculation>
+    val currentInput: StateFlow<String>
+    val lastSavedId: StateFlow<Long?>
+    val hasNext: StateFlow<Boolean>
+    val hasPrevious: StateFlow<Boolean>
 
-    fun addOperation(operation: Operation)
-    fun finishCalculation()
-    fun addNumber(number: Float)
-    fun removeLastSegment(): Float
+    fun appendDigit(digit: String)
+    fun applyOperation(operation: Operation)
+    fun calculateResult()
+    fun backspace()
+    fun clearCurrent()
+    fun loadNext()
+    fun loadPrevious()
 }
 
-private class RootComponentImpl(componentContext: ComponentContext) : RootComponent,
-    ComponentContext by componentContext {
-    private val _calculation = MutableStateFlow(value = Calculation())
+private class RootComponentImpl(
+    componentContext: ComponentContext,
+    private val calculationRepository: CalculationRepository
+) : RootComponent, ComponentContext by componentContext {
+
+    private val componentScope = componentContext.coroutineScope()
+    private val pageSize = 12
+    private val windowSize = 3
+
+    private val currentPage = MutableStateFlow(0)
+    private val _lastSavedId = MutableStateFlow<Long?>(null)
+    private val _calculation = MutableStateFlow(Calculation())
+    private val _currentInput = MutableStateFlow("")
+
+    override val lastSavedId = _lastSavedId.asStateFlow()
     override val calculation = _calculation.asStateFlow()
+    override val currentInput = _currentInput.asStateFlow()
 
-    override fun addOperation(operation: Operation) {
-        _calculation.update {
+    private val pageStates = mutableMapOf<Int, MutableStateFlow<PageData<DomainCalculation>>>()
+    private val pageJobs = mutableMapOf<Int, Job>()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val calculations: StateFlow<List<DomainCalculation>> = currentPage
+        .flatMapLatest { startPage ->
+            val indices = List(size = 3) { it + startPage }
+            flow {
+                indices.forEach { idx ->
+                    if (idx !in pageJobs) {
+                        val state = MutableStateFlow(
+                            PageData<DomainCalculation>(
+                                emptyList(),
+                                hasNext = false
+                            )
+                        )
+                        pageStates[idx] = state
+                        pageJobs[idx] = componentScope.launch {
+                            calculationRepository.getPageFlow(idx, pageSize)
+                                .collect { pageStates[idx]?.value = it }
+                        }
+                    }
+                }
+
+                val activeFlows = indices.mapNotNull { pageStates[it] }
+                if (activeFlows.isNotEmpty()) {
+                    combine(activeFlows) { pages ->
+                        pages.flatMap { it.items }
+                    }.collect { emit(it) }
+                } else {
+                    emit(emptyList())
+                }
+            }
+        }.stateIn(componentScope, SharingStarted.Eagerly, emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val hasPrevious = snapshotFlow { currentPage.value }
+        .flatMapLatest { page ->
+            val lastPageIdx = page + windowSize - 1
+            pageStates[lastPageIdx]?.map { it.hasNext } ?: flowOf(false)
+        }
+        .stateIn(componentScope, SharingStarted.Eagerly, false)
+
+    override val hasNext =
+        currentPage.map { it > 0 }.stateIn(componentScope, SharingStarted.Eagerly, false)
+
+    // Очистка старых страниц при сдвиге окна
+    init {
+        componentScope.launch {
+            currentPage.collect { page ->
+                val start = page
+                val end = page + windowSize - 1
+                val needed = (start..end).toSet()
+                val toRemove = pageJobs.keys - needed
+                toRemove.forEach { idx ->
+                    pageJobs[idx]?.cancel()
+                    pageJobs.remove(idx)
+                    pageStates.remove(idx)
+                }
+            }
+        }
+    }
+
+    override fun appendDigit(digit: String) {
+        if (lastSavedId.value != null) clearCurrent()
+        _currentInput.update { current ->
+            if (digit == "." && current.contains(".")) return@update current
+            if (current.length >= 12) return@update current
             when {
-                it.stored -> {
-                    Calculation(
-                        numbers = listOf(0f),
-                        operations = listOf(operation)
-                    )
-                }
-
-                it.numbers.isEmpty() -> {
-                    it.copy(
-                        numbers = listOf(0f),
-                        operations = listOf(operation),
-                        result = CalculationResult.Result()
-                    )
-                }
-
-                it.operations.size == it.numbers.size -> {
-                    val newOperations = if (it.operations.last() != operation) {
-                        it.operations.dropLast(1) + operation
-                    } else {
-                        it.operations
-                    }
-                    it.copy(
-                        operations = newOperations,
-                        result = calculate(numbers = it.numbers, operations = newOperations)
-                    )
-                }
-
-                else -> {
-                    val newOperations = it.operations + operation
-                    it.copy(
-                        operations = newOperations,
-                        result = calculate(numbers = it.numbers, operations = newOperations)
-                    )
-                }
+                current == "0" && digit != "." -> digit
+                (current == "0" || current.isEmpty()) && digit == "." -> "0."
+                else -> current + digit
             }
         }
     }
 
-    override fun finishCalculation() {
-        // todo: add storing later!
-        _calculation.update {
-            if (it.stored) it else it.copy(stored = true)
-        }
-    }
-
-    override fun removeLastSegment(): Float {
-        var number = 0f
-        if (calculation.value.numbers.isEmpty()) return number
-        _calculation.update {
-            number = it.numbers.last()
-            it.copy(
-                numbers = it.numbers.dropLast(1),
-                operations = it.operations.dropLast(1)
-            )
-        }
-        return number
-    }
-
-    override fun addNumber(number: Float) {
-        _calculation.update {
-            if (it.stored) {
-                Calculation(numbers = listOf(number), result = CalculationResult.Result(number))
+    override fun applyOperation(operation: Operation) {
+        if (lastSavedId.value != null) clearCurrent()
+        _calculation.update { currentCalc ->
+            val inputNum = currentInput.value.toFloatOrNull() ?: 0f
+            val hasInput = currentInput.value.isNotEmpty()
+            if (currentCalc.operations.size == currentCalc.numbers.size && !hasInput && currentCalc.operations.isNotEmpty()) {
+                if (currentCalc.operations.last() != operation)
+                    currentCalc.copy(operations = currentCalc.operations.dropLast(1) + operation)
+                else currentCalc
             } else {
-                when {
-                    it.numbers.size == it.operations.size -> {
-                        val newNumbers = it.numbers + number
-                        it.copy(
-                            numbers = newNumbers,
-                            result = calculate(numbers = newNumbers, operations = it.operations)
-                        )
-                    }
+                currentCalc.copy(
+                    numbers = currentCalc.numbers + inputNum,
+                    operations = currentCalc.operations + operation
+                )
+            }
+        }
+        _currentInput.value = ""
+    }
 
-                    it.numbers.last() == number -> {
-                        it
-                    }
+    override fun calculateResult() {
+        if (lastSavedId.value != null) return
+        val inputNum = _currentInput.value.toFloatOrNull() ?: 0f
+        val hasInput = _currentInput.value.isNotEmpty()
+        _currentInput.value = ""
+        val finalNumbers =
+            if (hasInput) calculation.value.numbers + inputNum else calculation.value.numbers
+        val result = calculate(finalNumbers, calculation.value.operations)
+        _calculation.value = calculation.value.copy(
+            numbers = finalNumbers, operations = calculation.value.operations, result = result
+        )
+        if (result is CalculationResult.Result) {
+            componentScope.launch {
+                _lastSavedId.value = calculationRepository.addCalculation(
+                    finalNumbers,
+                    calculation.value.operations,
+                    result.number
+                )
+            }
+        }
+    }
 
-                    else -> {
-                        val newNumbers = it.numbers.dropLast(1) + number
-                        it.copy(
-                            numbers = newNumbers,
-                            result = calculate(numbers = newNumbers, operations = it.operations)
-                        )
-                    }
+    override fun backspace() {
+        if (lastSavedId.value != null) {
+            clearCurrent(); return
+        }
+
+        val cleanInput: (Float) -> String = { num ->
+            num.toString().removeSuffix(".0")
+        }
+
+        when {
+            _currentInput.value.isNotEmpty() -> {
+                _currentInput.value = _currentInput.value.dropLast(1)
+            }
+            _calculation.value.numbers.size > _calculation.value.operations.size -> {
+                _calculation.update { calc ->
+                    _currentInput.value = calc.numbers.lastOrNull()?.let(cleanInput) ?: ""
+                    calc.copy(numbers = calc.numbers.dropLast(1))
+                }
+            }
+            _calculation.value.numbers.isNotEmpty() -> {
+                _calculation.update { calc ->
+                    _currentInput.value = calc.numbers.lastOrNull()?.let(cleanInput) ?: ""
+                    calc.copy(
+                        numbers = calc.numbers.dropLast(1),
+                        operations = calc.operations.dropLast(1)
+                    )
                 }
             }
         }
     }
 
+    override fun clearCurrent() {
+        _lastSavedId.value = null
+        _calculation.value = Calculation()
+        _currentInput.value = ""
+    }
+
+    override fun loadNext() {
+        if (hasNext.value) currentPage.value--
+    }
+
+    override fun loadPrevious() {
+        if (hasPrevious.value) currentPage.value++
+    }
 
     private fun calculate(numbers: List<Float>, operations: List<Operation>): CalculationResult {
-        val numbers = numbers.toMutableList()
-        val operations = operations.toMutableList()
-        if (numbers.size == operations.size) numbers.add(0f)
-
-        var index = 0
-        while (index < operations.size) {
-            when (operations[index]) {
+        if (numbers.isEmpty()) return CalculationResult.Result()
+        val nums = numbers.toMutableList()
+        val ops = operations.toMutableList()
+        var i = 0
+        while (i < ops.size) {
+            when (ops[i]) {
                 Operation.Mult -> {
-                    numbers[index] *= numbers[index + 1]
-                    operations.removeAt(index)
-                    numbers.removeAt(index + 1)
+                    nums[i] *= nums[i + 1]; nums.removeAt(i + 1); ops.removeAt(i)
                 }
 
                 Operation.Div -> {
-                    if ((numbers[index + 1] - 0).absoluteValue < 1e-6f) return CalculationResult.DivideByZero
-                    numbers[index] /= numbers[index + 1]
-                    operations.removeAt(index)
-                    numbers.removeAt(index + 1)
+                    if (nums[i + 1] == 0f) return CalculationResult.DivideByZero
+                    nums[i] /= nums[i + 1]; nums.removeAt(i + 1); ops.removeAt(i)
                 }
 
-                else -> {
-                    index++
-                }
+                else -> i++
             }
         }
-
         return CalculationResult.Result(
-            number = operations
-                .zip(other = numbers.drop(1))
-                .fold(initial = numbers.first()) { previous, (operation, number) ->
-                    if (operation == Operation.Plus) previous + number else previous - number
-                }
+            ops.zip(nums.drop(1)).fold(nums.first().toDouble()) { acc, (op, num) ->
+                if (op == Operation.Plus) acc + num else acc - num
+            }
         )
     }
 }
 
-fun createRootComponent(componentContext: ComponentContext): RootComponent =
-    RootComponentImpl(componentContext)
+fun createRootComponent(
+    componentContext: ComponentContext,
+    calculationRepository: CalculationRepository
+): RootComponent = RootComponentImpl(componentContext, calculationRepository)

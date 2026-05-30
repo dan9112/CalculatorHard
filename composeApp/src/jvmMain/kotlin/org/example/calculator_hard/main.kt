@@ -12,8 +12,8 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.example.calculator_hard.presentation.RootScreen
-import org.example.calculator_hard.presentation.createRootComponent
 import org.example.calculator_hard.presentation.rememberOrientation
+import org.example.calculator_hard.shared.createRootComponent
 import org.example.calculator_hard.shared.startKoin
 import java.awt.Dimension
 import java.awt.Color as AwtColor
