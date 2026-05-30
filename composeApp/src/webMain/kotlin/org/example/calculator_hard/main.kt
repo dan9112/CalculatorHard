@@ -70,7 +70,6 @@ private fun LifecycleRegistry.attachToDocument() {
         if (getVisibilityState() == "visible") resume() else stop()
     }
 
-    // Применяем состояние при инициализации
     if (getVisibilityState() == "visible") resume() else stop()
 
     document.addEventListener("visibilitychange", callback)

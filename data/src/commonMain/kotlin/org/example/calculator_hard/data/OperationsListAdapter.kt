@@ -5,11 +5,10 @@ import org.example.calculator_hard.domain.Operation
 
 object OperationListAdapter : ColumnAdapter<List<Operation>, ByteArray> {
     override fun encode(value: List<Operation>): ByteArray {
-        if (value.isEmpty()) return byteArrayOf(0) // или своя логика для пустого списка
+        if (value.isEmpty()) return byteArrayOf(0)
 
-        // Первый байт храним количество операций, чтобы избежать мусора в последнем байте
         val count = value.size
-        val packedSize = 1 + (count + 3) / 4 // 1 байт на длину + байты под данные
+        val packedSize = 1 + (count + 3) / 4
         val bytes = ByteArray(packedSize)
         bytes[0] = count.toByte()
 

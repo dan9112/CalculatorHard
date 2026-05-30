@@ -16,7 +16,7 @@ VALUES (:numbers, :operations, :result);
 lastInsertId:
 SELECT last_insert_rowid();
 
-getCalculations:
+getCalculationsPage:
 SELECT id, numbers, operations, result
 FROM Calculations
 ORDER BY id DESC

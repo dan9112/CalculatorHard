@@ -6,9 +6,8 @@ object FloatListAdapter : ColumnAdapter<List<Float>, ByteArray> {
     override fun encode(value: List<Float>): ByteArray {
         val bytes = ByteArray(value.size * 4)
         for (i in value.indices) {
-            val bits = value[i].toBits() // IEEE-754 32-bit представление
+            val bits = value[i].toBits()
             val offset = i * 4
-            // Записываем в Little-Endian (порядок байт не важен, главное чтобы encode/decode совпадали)
             bytes[offset] = bits.toByte()
             bytes[offset + 1] = (bits shr 8).toByte()
             bytes[offset + 2] = (bits shr 16).toByte()
@@ -22,7 +21,6 @@ object FloatListAdapter : ColumnAdapter<List<Float>, ByteArray> {
         val count = databaseValue.size / 4
         return List(count) { i ->
             val offset = i * 4
-            // Собираем Int из 4 байт (обратно в Little-Endian)
             val bits = (databaseValue[offset].toInt() and 0xFF) or
                     ((databaseValue[offset + 1].toInt() and 0xFF) shl 8) or
                     ((databaseValue[offset + 2].toInt() and 0xFF) shl 16) or

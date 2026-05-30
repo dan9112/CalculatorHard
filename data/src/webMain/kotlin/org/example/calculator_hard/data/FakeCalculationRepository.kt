@@ -1,25 +1,29 @@
 package org.example.calculator_hard.data
 
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import org.example.calculator_hard.domain.Calculation
 import org.example.calculator_hard.domain.CalculationRepository
 import org.example.calculator_hard.domain.Operation
+import org.example.calculator_hard.domain.PageData
 
 // todo: replace fake when SQLDelight dev team shows right way of using their library on web!
 class FakeCalculationRepository : CalculationRepository {
     private var index = 0L
     private val _calculations = MutableStateFlow<List<Calculation>>(emptyList())
 
-    // Реактивная пагинация с сортировкой по убыванию ID
-    override fun getCalculationsFlow(limit: Int, offset: Int): Flow<List<Calculation>> {
-        return _calculations.map { list ->
-            list.sortedByDescending { it.id }
-                .drop(offset)
-                .take(limit)
-        }
+    override fun getPageFlow(page: Int, pageSize: Int) = _calculations.map { list ->
+        val items = list
+            .dropLast(page * pageSize)
+            .takeLast(pageSize + 1)
+            .reversed()
+
+        val hasNext = items.size > pageSize
+        PageData(
+            items = if (hasNext) items.dropLast(1) else items,
+            hasNext = hasNext
+        )
     }
 
     override suspend fun addCalculation(

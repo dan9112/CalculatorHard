@@ -457,7 +457,6 @@ expect fun dynamicColorScheme(darkTheme: Boolean): ColorScheme?
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     contrastLevel: ContrastLevel = ContrastLevel.Normal,
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
