@@ -23,6 +23,7 @@ kotlinx-coroutines = "1.11.0"
 kotlinxBrowser = "0.5.0"
 kotzilla = "2.2.0"
 material3 = "1.9.0"
+materialIconsExtended = "1.7.3"
 sqlDelight = "2.3.2"
 
 [libraries]
@@ -66,6 +67,7 @@ sqlDelight-web-driver = { module = "app.cash.sqldelight:web-worker-driver", vers
 sqlDelight-webWasm-driver = { module = "app.cash.sqldelight:web-worker-driver-wasm-js", version.ref = "sqlDelight" }
 
 kotzilla-sdk-compose = { group = "io.kotzilla", name = "kotzilla-sdk-compose", version.ref = "kotzilla" }
+material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
 
 #gradlePlugin-android = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
 gradlePlugin-compose = { group = "org.jetbrains.compose", name = "compose-gradle-plugin", version.ref = "composeMultiplatform" }

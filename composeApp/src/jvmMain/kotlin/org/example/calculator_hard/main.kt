@@ -13,7 +13,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.example.calculator_hard.presentation.RootScreen
 import org.example.calculator_hard.presentation.rememberOrientation
-import org.example.calculator_hard.presentation.ui.theme.AppTheme
 import org.example.calculator_hard.shared.createRootComponent
 import org.example.calculator_hard.shared.startKoin
 import java.awt.Dimension
@@ -44,12 +43,10 @@ fun main() {
             }
 
             LifecycleController(lifecycleRegistry = lifecycle, windowState = rememberWindowState())
-            AppTheme {
-                RootScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    rootComponent = rootComponent
-                )
-            }
+            RootScreen(
+                modifier = Modifier.fillMaxSize(),
+                rootComponent = rootComponent
+            )
         }
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_button_open">Открыть меню настроек</string>
+    <string name="menu_button_close">Закрыть меню настроек</string>
+
+    <string name="theme_system">Системная тема</string>
+    <string name="theme_light">Светлая тема</string>
+    <string name="theme_dark">Тёмная тема</string>
+
+    <string name="contrast_normal">Нормальная контрастность</string>
+    <string name="contrast_high">Увеличенная контрастность</string>
+    <string name="contrast_max">Максимальная контрастность</string>
+
+    <string name="dynamic_color_on">Адаптивные цвета включены</string>
+    <string name="dynamic_color_off">Адаптивные цвета выключены</string>
+</resources>

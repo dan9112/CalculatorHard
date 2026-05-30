@@ -1,16 +1,19 @@
 package org.example.calculator_hard.presentation
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -26,6 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -35,6 +42,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +54,10 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.example.calculator_hard.domain.Operation
+import org.example.calculator_hard.presentation.settings.ExpandableSettingsPanel
+import org.example.calculator_hard.presentation.settings.dynamicColorsSupport
+import org.example.calculator_hard.presentation.ui.theme.AppTheme
+import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 import kotlin.math.absoluteValue
 import kotlin.math.roundToLong
 import org.example.calculator_hard.domain.Calculation as DomainCalculation
@@ -102,203 +114,261 @@ fun RootScreen(
     rootComponent: RootComponent,
     orientation: Orientation = rememberOrientation()
 ) {
-    Scaffold { innerPadding ->
-        BoxWithConstraints(
-            modifier = modifier
-                .padding(innerPadding)
-                .padding(all = PADDINGS.dp)
-                .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown) {
-                        when (event.key) {
-                            Key.NumPad0, Key.Zero -> rootComponent.appendDigit("0")
-                            Key.NumPad1, Key.One -> rootComponent.appendDigit("1")
-                            Key.NumPad2, Key.Two -> rootComponent.appendDigit("2")
-                            Key.NumPad3, Key.Three -> rootComponent.appendDigit("3")
-                            Key.NumPad4, Key.Four -> rootComponent.appendDigit("4")
-                            Key.NumPad5, Key.Five -> rootComponent.appendDigit("5")
-                            Key.NumPad6, Key.Six -> rootComponent.appendDigit("6")
-                            Key.NumPad7, Key.Seven -> rootComponent.appendDigit("7")
-                            Key.NumPad8, Key.Eight -> rootComponent.appendDigit("8")
-                            Key.NumPad9, Key.Nine -> rootComponent.appendDigit("9")
-                            Key.Period, Key.Comma, Key.NumPadComma, Key.NumPadDot -> rootComponent.appendDigit(
-                                "."
-                            )
+    var theme by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
+    var contrast by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.ordinal },
+            restore = { ContrastLevel.entries[it] }
+        )
+    ) { mutableStateOf(value = ContrastLevel.Normal) }
+    val dynamic =
+        if (dynamicColorsSupport) rememberSaveable { mutableStateOf(value = true) } else null
 
-                            Key.Minus -> rootComponent.applyOperation(Operation.Minus)
-                            Key.Plus, Key.NumPadAdd -> rootComponent.applyOperation(Operation.Plus)
-                            Key.Multiply, Key.NumPadMultiply -> rootComponent.applyOperation(
-                                Operation.Mult
-                            )
+    AppTheme(
+        darkTheme = theme ?: isSystemInDarkTheme(),
+        contrastLevel = contrast,
+        dynamicColor = dynamic?.value ?: false
+    ) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) { innerPadding ->
+            val padding = innerPadding + PaddingValues(all = PADDINGS.dp)
+            val layoutDirection = LocalLayoutDirection.current
 
-                            Key.Slash, Key.NumPadDivide -> rootComponent.applyOperation(Operation.Div)
-                            Key.Backspace -> rootComponent.backspace()
-                            Key.Enter, Key.NumPadEnter, Key.NumPadEquals, Key.Equals -> rootComponent.calculateResult()
-                            Key.Escape -> rootComponent.clearCurrent()
-                            else -> return@onPreviewKeyEvent false
-                        }
-                        true
-                    } else false
-                }
-        ) {
-            val width = maxWidth - PADDINGS.dp
-            val height = maxHeight - PADDINGS.dp
-
-            val targetDisplayWidth = when (orientation) {
-                Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT)).coerceAtMost(
-                    width - MIN_BUTTONS_WIDTH.dp
-                )
-
-                Orientation.Vertical -> maxWidth
-            }
-            val targetDisplayHeight = when (orientation) {
-                Orientation.Horizontal -> maxHeight
-                Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT)).coerceAtMost(
-                    height - MIN_BUTTONS_HEIGHT.dp
-                )
-            }
-            val targetButtonsWidth = when (orientation) {
-                Orientation.Horizontal -> width - targetDisplayWidth; Orientation.Vertical -> maxWidth
-            }
-            val targetButtonsHeight = when (orientation) {
-                Orientation.Horizontal -> maxHeight; Orientation.Vertical -> height - targetDisplayHeight
-            }
-
-            val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
-            val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
-            val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
-            val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
-
-            val calculation by rootComponent.calculation.collectAsState()
-            val currentInput by rootComponent.currentInput.collectAsState()
-            val lastSavedId by rootComponent.lastSavedId.collectAsState()
-            val visibleHistory by rootComponent.calculations.collectAsState()
-            val hasOlder by rootComponent.hasPrevious.collectAsState()
-            val hasNewer by rootComponent.hasNext.collectAsState()
-            val listState = rememberLazyListState()
-
-            LaunchedEffect(listState) {
-                snapshotFlow { listState.canScrollForward }
-                    .distinctUntilChanged()
-                    .collect { canScrollForward ->
-                        if (!canScrollForward && hasOlder) {
-                            rootComponent.loadPrevious()
-                        }
-                    }
-            }
-            LaunchedEffect(listState) {
-                snapshotFlow { listState.canScrollBackward }
-                    .distinctUntilChanged()
-                    .collect { canScrollBackward ->
-                        if (!canScrollBackward && hasNewer) {
-                            rootComponent.loadNext()
-                        }
-                    }
-            }
-
-            val isSticky = lastSavedId != null
-
-            val expression = buildString {
-                calculation.operations.forEachIndexed { i, op ->
-                    append("${calculation.numbers[i].formatDisplay()} ")
-                    append(
-                        when (op) {
-                            Operation.Plus -> '+'; Operation.Minus -> '-'; Operation.Mult -> '*'; Operation.Div -> '/'
-                        }
+            BoxWithConstraints(
+                modifier = modifier
+                    .padding(
+                        start = padding.calculateStartPadding(layoutDirection),
+                        end = padding.calculateEndPadding(layoutDirection)
                     )
-                    append(" ")
-                }
-                if (isSticky) {
-                    val lastNum =
-                        if (calculation.numbers.size > calculation.operations.size) calculation.numbers.last() else 0f
-                    append("${lastNum.formatDisplay()} = ${(calculation.result as? CalculationResult.Result)?.number?.formatDisplay() ?: "Calculate error"} ")
-                } else {
-                    if (calculation.numbers.size > calculation.operations.size) {
-                        append(
-                            calculation
-                                .numbers
-                                .last()
-                                .formatDisplay()
-                        )
-                    } else if (currentInput.isNotEmpty()) {
-                        append(currentInput)
-                    } else if (calculation.numbers.isEmpty()) {
-                        append("0")
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            when (event.key) {
+                                Key.NumPad0, Key.Zero -> rootComponent.appendDigit("0")
+                                Key.NumPad1, Key.One -> rootComponent.appendDigit("1")
+                                Key.NumPad2, Key.Two -> rootComponent.appendDigit("2")
+                                Key.NumPad3, Key.Three -> rootComponent.appendDigit("3")
+                                Key.NumPad4, Key.Four -> rootComponent.appendDigit("4")
+                                Key.NumPad5, Key.Five -> rootComponent.appendDigit("5")
+                                Key.NumPad6, Key.Six -> rootComponent.appendDigit("6")
+                                Key.NumPad7, Key.Seven -> rootComponent.appendDigit("7")
+                                Key.NumPad8, Key.Eight -> rootComponent.appendDigit("8")
+                                Key.NumPad9, Key.Nine -> rootComponent.appendDigit("9")
+                                Key.Period, Key.Comma, Key.NumPadComma, Key.NumPadDot -> rootComponent.appendDigit(
+                                    "."
+                                )
+
+                                Key.Minus -> rootComponent.applyOperation(Operation.Minus)
+                                Key.Plus, Key.NumPadAdd -> rootComponent.applyOperation(Operation.Plus)
+                                Key.Multiply, Key.NumPadMultiply -> rootComponent.applyOperation(
+                                    Operation.Mult
+                                )
+
+                                Key.Slash, Key.NumPadDivide -> rootComponent.applyOperation(
+                                    Operation.Div
+                                )
+
+                                Key.Backspace -> rootComponent.backspace()
+                                Key.Enter, Key.NumPadEnter, Key.NumPadEquals, Key.Equals -> rootComponent.calculateResult()
+                                Key.Escape -> rootComponent.clearCurrent()
+                                else -> return@onPreviewKeyEvent false
+                            }
+                            true
+                        } else false
                     }
-                }
-            }
-
-            val previewResult = if (isSticky) {
-                (calculation.result as? CalculationResult.Result)?.number?.formatDisplay()
-                    ?: "Error"
-            } else {
-                calculatePreview(calculation.numbers, calculation.operations, currentInput)
-            }
-
-            Column(
-                modifier = Modifier.width(displayWidth).height(displayHeight)
-                    .align(Alignment.TopStart)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(BUTTON_CORNERS.dp)
-                    )
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
             ) {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    state = listState,
-                    reverseLayout = true,
-                    verticalArrangement = Arrangement.spacedBy(2.dp, alignment = Alignment.Bottom),
-                    horizontalAlignment = Alignment.End
+                val width = maxWidth - when (orientation) {
+                    Orientation.Vertical -> 0.dp
+                    Orientation.Horizontal -> PADDINGS.dp
+                }
+                val height =
+                    maxHeight - padding.calculateTopPadding() - padding.calculateBottomPadding() - when (orientation) {
+                        Orientation.Vertical -> PADDINGS.dp
+                        Orientation.Horizontal -> 0.dp
+                    }
+
+                val targetDisplayWidth = when (orientation) {
+                    Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT))
+                        .coerceAtMost(maximumValue = width - MIN_BUTTONS_WIDTH.dp)
+
+                    Orientation.Vertical -> maxWidth
+                }
+                val targetDisplayHeight = when (orientation) {
+                    Orientation.Horizontal -> maxHeight - padding.calculateBottomPadding()
+                    Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT))
+                        .coerceAtMost(maximumValue = height - MIN_BUTTONS_HEIGHT.dp) + padding.calculateTopPadding()
+                }
+                val targetButtonsWidth = when (orientation) {
+                    Orientation.Horizontal -> width - targetDisplayWidth
+                    Orientation.Vertical -> maxWidth
+                }
+                val targetButtonsHeight = when (orientation) {
+                    Orientation.Horizontal -> maxHeight - padding.calculateTopPadding() - padding.calculateBottomPadding()
+                    Orientation.Vertical -> height - targetDisplayHeight + padding.calculateTopPadding()
+                }
+
+                val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
+                val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
+                val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
+                val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
+
+                val calculation by rootComponent.calculation.collectAsState()
+                val currentInput by rootComponent.currentInput.collectAsState()
+                val lastSavedId by rootComponent.lastSavedId.collectAsState()
+                val visibleHistory by rootComponent.calculations.collectAsState()
+                val hasOlder by rootComponent.hasPrevious.collectAsState()
+                val hasNewer by rootComponent.hasNext.collectAsState()
+                val listState = rememberLazyListState()
+
+                LaunchedEffect(listState) {
+                    snapshotFlow { listState.canScrollForward }
+                        .distinctUntilChanged()
+                        .collect { canScrollForward ->
+                            if (!canScrollForward && hasOlder) {
+                                rootComponent.loadPrevious()
+                            }
+                        }
+                }
+                LaunchedEffect(listState) {
+                    snapshotFlow { listState.canScrollBackward }
+                        .distinctUntilChanged()
+                        .collect { canScrollBackward ->
+                            if (!canScrollBackward && hasNewer) {
+                                rootComponent.loadNext()
+                            }
+                        }
+                }
+
+                val isSticky = lastSavedId != null
+
+                val expression = buildString {
+                    calculation.operations.forEachIndexed { i, op ->
+                        append("${calculation.numbers[i].formatDisplay()} ")
+                        append(
+                            when (op) {
+                                Operation.Plus -> '+'; Operation.Minus -> '-'; Operation.Mult -> '*'; Operation.Div -> '/'
+                            }
+                        )
+                        append(" ")
+                    }
+                    if (isSticky) {
+                        val lastNum =
+                            if (calculation.numbers.size > calculation.operations.size) calculation.numbers.last() else 0f
+                        append("${lastNum.formatDisplay()} = ${(calculation.result as? CalculationResult.Result)?.number?.formatDisplay() ?: "Calculate error"} ")
+                    } else {
+                        if (calculation.numbers.size > calculation.operations.size) {
+                            append(
+                                calculation
+                                    .numbers
+                                    .last()
+                                    .formatDisplay()
+                            )
+                        } else if (currentInput.isNotEmpty()) {
+                            append(currentInput)
+                        } else if (calculation.numbers.isEmpty()) {
+                            append("0")
+                        }
+                    }
+                }
+
+                val previewResult = if (isSticky) {
+                    (calculation.result as? CalculationResult.Result)?.number?.formatDisplay()
+                        ?: "Error"
+                } else {
+                    calculatePreview(calculation.numbers, calculation.operations, currentInput)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .width(displayWidth)
+                        .height(displayHeight)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
                 ) {
-                    items(visibleHistory, key = { it.id }) { calc ->
-                        Text(
-                            text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.error)) {
-                                    append("${calc.id} ")
-                                }
-                                calc.operations.forEachIndexed { index, op ->
-                                    append("${calc.numbers[index].formatDisplay()}  ")
-                                    append(
-                                        when (op) {
-                                            Operation.Plus -> "+ "; Operation.Minus -> "- "; Operation.Mult -> "* "; Operation.Div -> "/ "
-                                        }
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        state = listState,
+                        contentPadding = PaddingValues(
+                            top = padding.calculateTopPadding()
+                        ),
+                        reverseLayout = true,
+                        verticalArrangement = Arrangement.spacedBy(
+                            2.dp,
+                            alignment = Alignment.Bottom
+                        ),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        items(visibleHistory, key = { it.id }) { calc ->
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.error)) {
+                                        append("${calc.id} ")
+                                    }
+                                    calc.operations.forEachIndexed { index, op ->
+                                        append("${calc.numbers[index].formatDisplay()}  ")
+                                        append(
+                                            when (op) {
+                                                Operation.Plus -> "+ "; Operation.Minus -> "- "; Operation.Mult -> "* "; Operation.Div -> "/ "
+                                            }
+                                        )
+                                    }
+                                    calc.numbers.lastOrNull()?.let { lastNum ->
+                                        append("${lastNum.formatDisplay()} = ${calc.result?.formatDisplay() ?: "Error"} ")
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface.copy(
+                                        alpha = 0.6f
                                     )
-                                }
-                                calc.numbers.lastOrNull()?.let { lastNum ->
-                                    append("${lastNum.formatDisplay()} = ${calc.result?.formatDisplay() ?: "Error"} ")
-                                }
-                            },
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface.copy(
-                                    alpha = 0.6f
                                 )
                             )
-                        )
+                        }
                     }
+
+                    Text(
+                        text = buildAnnotatedString {
+                            append(expression)
+                            appendLine()
+                            withStyle(SpanStyle(fontWeight = if (isSticky) FontWeight.Bold else null)) {
+                                append(previewResult)
+                            }
+                        },
+                        modifier = Modifier
+                            .wrapContentHeight()
+                            .fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        textAlign = TextAlign.End
+                    )
                 }
 
-                Text(
-                    text = buildAnnotatedString {
-                        append(expression)
-                        appendLine()
-                        withStyle(SpanStyle(fontWeight = if (isSticky) FontWeight.Bold else null)) {
-                            append(previewResult)
-                        }
-                    },
-                    modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    textAlign = TextAlign.End
+                StaticCalculatorGrid(
+                    modifier = Modifier
+                        .padding(
+                            bottom = padding.calculateBottomPadding()
+                        )
+                        .width(buttonsWidth)
+                        .height(buttonsHeight)
+                        .align(Alignment.BottomEnd),
+                    onDigit = rootComponent::appendDigit,
+                    onOperation = rootComponent::applyOperation,
+                    onEquals = rootComponent::calculateResult,
+                    onBackspace = rootComponent::backspace
+                )
+
+                ExpandableSettingsPanel(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = padding.calculateTopPadding()),
+                    buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
+                    theme = theme to { theme = it },
+                    contrast = contrast to { contrast = it },
+                    dynamic = dynamic?.let { state ->
+                        state.value to { dynamic.value = it }
+                    }
                 )
             }
-
-            StaticCalculatorGrid(
-                modifier = Modifier.width(buttonsWidth).height(buttonsHeight)
-                    .align(Alignment.BottomEnd),
-                onDigit = rootComponent::appendDigit,
-                onOperation = rootComponent::applyOperation,
-                onEquals = rootComponent::calculateResult,
-                onBackspace = rootComponent::backspace
-            )
         }
     }
 }
@@ -365,32 +435,34 @@ private fun StaticCalculatorGrid(
             val height = (cellHeight * rowSpan) + (SPACE_BETWEEN_BUTTONS.dp * (rowSpan - 1))
             Button(
                 onClick = onClick,
-                modifier = Modifier.offset(
-                    x = (cellWidth + SPACE_BETWEEN_BUTTONS.dp) * col,
-                    y = (cellHeight + SPACE_BETWEEN_BUTTONS.dp) * row
-                ).size(width, height),
+                modifier = Modifier
+                    .offset(
+                        x = (cellWidth + SPACE_BETWEEN_BUTTONS.dp) * col,
+                        y = (cellHeight + SPACE_BETWEEN_BUTTONS.dp) * row
+                    )
+                    .size(width, height),
                 shape = RoundedCornerShape(BUTTON_CORNERS.dp),
                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
             ) { Text(text) }
         }
 
-        GridButton(0, 0, text = "*") { onOperation(Operation.Mult) }
-        GridButton(0, 1, text = "/") { onOperation(Operation.Div) }
-        GridButton(0, 2, text = "-") { onOperation(Operation.Minus) }
-        GridButton(0, 3, text = "←") { onBackspace() }
-        GridButton(1, 0, text = "7") { onDigit("7") }
-        GridButton(1, 1, text = "8") { onDigit("8") }
-        GridButton(1, 2, text = "9") { onDigit("9") }
-        GridButton(1, 3, rowSpan = 2, text = "+") { onOperation(Operation.Plus) }
-        GridButton(2, 0, text = "4") { onDigit("4") }
-        GridButton(2, 1, text = "5") { onDigit("5") }
-        GridButton(2, 2, text = "6") { onDigit("6") }
-        GridButton(3, 0, text = "1") { onDigit("1") }
-        GridButton(3, 1, text = "2") { onDigit("2") }
-        GridButton(3, 2, text = "3") { onDigit("3") }
-        GridButton(3, 3, rowSpan = 2, text = "=") { onEquals() }
-        GridButton(4, 0, colSpan = 2, text = "0") { onDigit("0") }
-        GridButton(4, 2, text = ".") { onDigit(".") }
+        GridButton(row = 0, col = 0, text = "*") { onOperation(Operation.Mult) }
+        GridButton(row = 0, col = 1, text = "/") { onOperation(Operation.Div) }
+        GridButton(row = 0, col = 2, text = "-") { onOperation(Operation.Minus) }
+        GridButton(row = 0, col = 3, text = "←") { onBackspace() }
+        GridButton(row = 1, col = 0, text = "7") { onDigit("7") }
+        GridButton(row = 1, col = 1, text = "8") { onDigit("8") }
+        GridButton(row = 1, col = 2, text = "9") { onDigit("9") }
+        GridButton(row = 1, col = 3, rowSpan = 2, text = "+") { onOperation(Operation.Plus) }
+        GridButton(row = 2, col = 0, text = "4") { onDigit("4") }
+        GridButton(row = 2, col = 1, text = "5") { onDigit("5") }
+        GridButton(row = 2, col = 2, text = "6") { onDigit("6") }
+        GridButton(row = 3, col = 0, text = "1") { onDigit("1") }
+        GridButton(row = 3, col = 1, text = "2") { onDigit("2") }
+        GridButton(row = 3, col = 2, text = "3") { onDigit("3") }
+        GridButton(row = 3, col = 3, rowSpan = 2, text = "=") { onEquals() }
+        GridButton(row = 4, col = 0, colSpan = 2, text = "0") { onDigit("0") }
+        GridButton(row = 4, col = 2, text = ".") { onDigit(".") }
     }
 }
 

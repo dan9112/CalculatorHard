@@ -11,7 +11,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.arkivanov.decompose.defaultComponentContext
 import org.example.calculator_hard.presentation.App
 import org.example.calculator_hard.presentation.RootScreen
-import org.example.calculator_hard.presentation.ui.theme.AppTheme
 import org.example.calculator_hard.shared.createRootComponent
 
 class MainActivity : AppCompatActivity() {
@@ -22,12 +21,10 @@ class MainActivity : AppCompatActivity() {
         val rootComponent = createRootComponent(componentContext = defaultComponentContext())
 
         setContent {
-            AppTheme {
-                RootScreen(
-                    modifier = Modifier.fillMaxSize(),
-                    rootComponent = rootComponent
-                )
-            }
+            RootScreen(
+                modifier = Modifier.fillMaxSize(),
+                rootComponent = rootComponent
+            )
         }
     }
 }
