@@ -1,23 +1,42 @@
 package org.example.calculator_hard.presentation.settings
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.SystemSecurityUpdateGood
+import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,10 +58,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
-import calculatorhard.presentation.generated.resources.*
+import calculatorhard.presentation.generated.resources.Res
+import calculatorhard.presentation.generated.resources.contrast_high
+import calculatorhard.presentation.generated.resources.contrast_max
+import calculatorhard.presentation.generated.resources.contrast_normal
+import calculatorhard.presentation.generated.resources.dynamic_color_off
+import calculatorhard.presentation.generated.resources.dynamic_color_on
+import calculatorhard.presentation.generated.resources.menu_button_close
+import calculatorhard.presentation.generated.resources.menu_button_open
+import calculatorhard.presentation.generated.resources.theme_dark
+import calculatorhard.presentation.generated.resources.theme_light
+import calculatorhard.presentation.generated.resources.theme_system
 import org.example.calculator_hard.presentation.ui.theme.AppTheme
 import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 import org.jetbrains.compose.resources.stringResource
+
+private const val ANIMATION_DURATION = 300
 
 @Composable
 fun ExpandableSettingsPanel(
@@ -102,11 +133,11 @@ fun ExpandableSettingsPanel(
         // Панель с кнопками настроек
         AnimatedVisibility(
             visible = isMenuOpen,
-            enter = expandHorizontally(animationSpec = tween(durationMillis = 300)) + fadeIn(
-                animationSpec = tween(durationMillis = 300)
+            enter = expandHorizontally(animationSpec = tween(durationMillis = ANIMATION_DURATION)) + fadeIn(
+                animationSpec = tween(durationMillis = ANIMATION_DURATION)
             ),
-            exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300)) + fadeOut(
-                animationSpec = tween(durationMillis = 300)
+            exit = shrinkHorizontally(animationSpec = tween(durationMillis = ANIMATION_DURATION)) + fadeOut(
+                animationSpec = tween(durationMillis = ANIMATION_DURATION)
             )
         ) {
             Row(
@@ -148,25 +179,34 @@ fun ExpandableSettingsPanel(
                         onClick = { invoke(!isDynamicColor) }
                     )
                 }
-
-                // Кнопка Контрастности
-                SettingIconButton(
-                    icon = contrastIcon,
-                    shape = buttonShape,
-                    enabled = dynamic?.first != true,
-                    contentDescription = contrastDescription,
-                    onClick = {
-                        contrast
-                            .second
-                            .invoke(
-                                when (contrastState) {
-                                    ContrastLevel.Normal -> ContrastLevel.Medium
-                                    ContrastLevel.Medium -> ContrastLevel.High
-                                    ContrastLevel.High -> ContrastLevel.Normal
-                                }
-                            )
-                    }
-                )
+                AnimatedVisibility(
+                    visible = dynamic == null || !dynamic.first,
+                    enter = expandHorizontally(animationSpec = tween(durationMillis = ANIMATION_DURATION)) + fadeIn(
+                        animationSpec = tween(durationMillis = ANIMATION_DURATION)
+                    ),
+                    exit = shrinkHorizontally(animationSpec = tween(durationMillis = ANIMATION_DURATION)) + fadeOut(
+                        animationSpec = tween(durationMillis = ANIMATION_DURATION)
+                    )
+                ) {
+                    // Кнопка Контрастности
+                    SettingIconButton(
+                        icon = contrastIcon,
+                        shape = buttonShape,
+                        enabled = dynamic?.first != true,
+                        contentDescription = contrastDescription,
+                        onClick = {
+                            contrast
+                                .second
+                                .invoke(
+                                    when (contrastState) {
+                                        ContrastLevel.Normal -> ContrastLevel.Medium
+                                        ContrastLevel.Medium -> ContrastLevel.High
+                                        ContrastLevel.High -> ContrastLevel.Normal
+                                    }
+                                )
+                        }
+                    )
+                }
             }
         }
     }
@@ -212,7 +252,7 @@ private fun AnimatedMenuArrowIcon(
     // 1. Прогресс морфинга крыльев (0f - бургер, 1f - стрелка)
     val morphProgress by animateFloatAsState(
         targetValue = if (isMenuState) 0f else 1f,
-        animationSpec = tween(durationMillis = 300)
+        animationSpec = tween(durationMillis = ANIMATION_DURATION)
     )
 
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -226,7 +266,7 @@ private fun AnimatedMenuArrowIcon(
 
     val rotationAngle by animateFloatAsState(
         targetValue = targetRotation,
-        animationSpec = tween(durationMillis = 300)
+        animationSpec = tween(durationMillis = ANIMATION_DURATION)
     )
 
     Box(
