@@ -38,6 +38,8 @@ kotlin {
             api(libs.decompose.core)
             implementation(libs.essenty.lifecycle)
             api(libs.decompose.compose)
+
+            implementation(libs.material.icons.extended)
         }
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutinesSwing)

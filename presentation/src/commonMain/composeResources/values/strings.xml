@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_button_open">Open settings menu</string>
+    <string name="menu_button_close">Close settings menu</string>
+
+    <string name="theme_system">System theme</string>
+    <string name="theme_light">Light theme</string>
+    <string name="theme_dark">Dark theme</string>
+
+    <string name="contrast_normal">Normal contrast</string>
+    <string name="contrast_high">High contrast</string>
+    <string name="contrast_max">Maximum contrast</string>
+
+    <string name="dynamic_color_on">Dynamic colors enabled</string>
+    <string name="dynamic_color_off">Dynamic colors disabled</string>
+</resources>

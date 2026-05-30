@@ -1,19 +1,9 @@
 package org.example.calculator_hard.presentation
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,18 +11,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +30,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.example.calculator_hard.presentation.settings.ExpandableSettingsPanel
+import org.example.calculator_hard.presentation.settings.dynamicColorsSupport
+import org.example.calculator_hard.presentation.ui.theme.AppTheme
+import org.example.calculator_hard.presentation.ui.theme.ContrastLevel
 
 // ✅ ИСХОДНЫЕ КОНСТАНТЫ ВОССТАНОВЛЕНЫ С ИСХОДНОЙ ВИДИМОСТЬЮ
 private const val MIN_DISPLAY_WIDTH = 180
@@ -127,193 +119,239 @@ fun RootScreen(
     rootComponent: RootComponent,
     orientation: Orientation = rememberOrientation()
 ) {
-    Scaffold {
-        BoxWithConstraints(modifier = modifier.padding(all = PADDINGS.dp)) {
-            val width = maxWidth - PADDINGS.dp
-            val height = maxHeight - PADDINGS.dp
+    var theme by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
+    var contrast by rememberSaveable(
+        stateSaver = Saver(
+            save = { it.ordinal },
+            restore = { ContrastLevel.entries[it] }
+        )
+    ) { mutableStateOf(value = ContrastLevel.Normal) }
+    val dynamic =
+        if (dynamicColorsSupport) rememberSaveable { mutableStateOf(value = true) } else null
 
-            val targetDisplayWidth = when (orientation) {
-                Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT)).coerceAtMost(
-                    maximumValue = width - MIN_BUTTONS_WIDTH.dp
-                )
+    AppTheme(
+        darkTheme = theme ?: isSystemInDarkTheme(),
+        contrastLevel = contrast,
+        dynamicColor = dynamic?.value ?: false
+    ) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ) { innerPadding ->
+            val padding = innerPadding + PaddingValues(all = PADDINGS.dp)
+            val layoutDirection = LocalLayoutDirection.current
 
-                Orientation.Vertical -> maxWidth
-            }
-            val targetDisplayHeight = when (orientation) {
-                Orientation.Horizontal -> maxHeight
-                Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT)).coerceAtMost(
-                    maximumValue = height - MIN_BUTTONS_HEIGHT.dp
-                )
-            }
-            val targetButtonsWidth = when (orientation) {
-                Orientation.Horizontal -> width - targetDisplayWidth
-                Orientation.Vertical -> maxWidth
-            }
-            val targetButtonsHeight = when (orientation) {
-                Orientation.Horizontal -> maxHeight
-                Orientation.Vertical -> height - targetDisplayHeight
-            }
+            BoxWithConstraints(
+                modifier = modifier
+                    .padding(
+                        start = padding.calculateStartPadding(layoutDirection),
+                        end = padding.calculateEndPadding(layoutDirection)
+                    )
+            ) {
+                val width = maxWidth - when (orientation) {
+                    Orientation.Vertical -> 0.dp
+                    Orientation.Horizontal -> PADDINGS.dp
+                }
+                val height =
+                    maxHeight - padding.calculateTopPadding() - padding.calculateBottomPadding() - when (orientation) {
+                        Orientation.Vertical -> PADDINGS.dp
+                        Orientation.Horizontal -> 0.dp
+                    }
 
-            val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
-            val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
-            val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
-            val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
+                val targetDisplayWidth = when (orientation) {
+                    Orientation.Horizontal -> (width * DISPLAY_HORIZONTAL_WEIGHT / (DISPLAY_HORIZONTAL_WEIGHT + BUTTONS_HORIZONTAL_WEIGHT))
+                        .coerceAtMost(maximumValue = width - MIN_BUTTONS_WIDTH.dp)
 
-            val calculation by rootComponent.calculation.collectAsState()
-            var currentNumber by rememberSaveable { mutableStateOf(value = "") }
+                    Orientation.Vertical -> maxWidth
+                }
+                val targetDisplayHeight = when (orientation) {
+                    Orientation.Horizontal -> maxHeight - padding.calculateBottomPadding()
+                    Orientation.Vertical -> (height * DISPLAY_VERTICAL_WEIGHT / (DISPLAY_VERTICAL_WEIGHT + BUTTONS_VERTICAL_WEIGHT))
+                        .coerceAtMost(maximumValue = height - MIN_BUTTONS_HEIGHT.dp) + padding.calculateTopPadding()
+                }
+                val targetButtonsWidth = when (orientation) {
+                    Orientation.Horizontal -> width - targetDisplayWidth
+                    Orientation.Vertical -> maxWidth
+                }
+                val targetButtonsHeight = when (orientation) {
+                    Orientation.Horizontal -> maxHeight - padding.calculateTopPadding() - padding.calculateBottomPadding()
+                    Orientation.Vertical -> height - targetDisplayHeight + padding.calculateTopPadding()
+                }
 
-            val onDigit: (String) -> Unit = { digit ->
-                if (calculation.stored && currentNumber.isBlank()) {
-                    if (digit == ".") currentNumber = "0"
-                    currentNumber += digit
-                } else {
-                    if (currentNumber == "0" && digit != ".") {
-                        currentNumber = digit
+                val displayWidth by animateDpAsState(targetValue = targetDisplayWidth)
+                val displayHeight by animateDpAsState(targetValue = targetDisplayHeight)
+                val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
+                val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
+
+                val calculation by rootComponent.calculation.collectAsState()
+                var currentNumber by rememberSaveable { mutableStateOf(value = "") }
+
+                val onDigit: (String) -> Unit = { digit ->
+                    if (calculation.stored && currentNumber.isBlank()) {
+                        if (digit == ".") currentNumber = "0"
+                        currentNumber += digit
                     } else {
-                        if (currentNumber.contains(".")) {
-                            if (currentNumber.length < 7) currentNumber += digit
+                        if (currentNumber == "0" && digit != ".") {
+                            currentNumber = digit
                         } else {
-                            if (digit == ".") {
-                                if (currentNumber.isBlank()) currentNumber += "0"
-                                currentNumber += digit
-                            } else if (currentNumber.length < 4) {
-                                currentNumber += digit
+                            if (currentNumber.contains(".")) {
+                                if (currentNumber.length < 7) currentNumber += digit
+                            } else {
+                                if (digit == ".") {
+                                    if (currentNumber.isBlank()) currentNumber += "0"
+                                    currentNumber += digit
+                                } else if (currentNumber.length < 4) {
+                                    currentNumber += digit
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            val onOperation: (Operation) -> Unit = { op ->
-                rootComponent.addNumber(if (currentNumber.isBlank()) 0f else currentNumber.toFloat())
-                rootComponent.addOperation(op)
-                currentNumber = ""
-            }
-
-            val onEquals: () -> Unit = {
-                if (currentNumber.isNotEmpty()) {
-                    rootComponent.addNumber(currentNumber.toFloat())
-                    rootComponent.finishCalculation()
+                val onOperation: (Operation) -> Unit = { op ->
+                    rootComponent.addNumber(if (currentNumber.isBlank()) 0f else currentNumber.toFloat())
+                    rootComponent.addOperation(op)
                     currentNumber = ""
                 }
-            }
 
-            val onBackspace: () -> Unit = {
-                if (calculation.stored && currentNumber.isBlank()) {
-                    currentNumber = "0"
-                } else {
+                val onEquals: () -> Unit = {
                     if (currentNumber.isNotEmpty()) {
-                        currentNumber = currentNumber.dropLast(1)
-                    } else {
-                        rootComponent.removeLastSegment()
+                        rootComponent.addNumber(currentNumber.toFloat())
+                        rootComponent.finishCalculation()
+                        currentNumber = ""
                     }
                 }
-            }
 
-            val historyScrollState = rememberLazyListState()
-            val nestedScrollConnection = object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource) =
-                    Offset.Zero
-
-                override fun onPostScroll(
-                    consumed: Offset,
-                    available: Offset,
-                    source: NestedScrollSource
-                ) = Offset(0f, consumed.y)
-            }
-
-            Column(
-                modifier = Modifier
-                    .width(displayWidth)
-                    .height(displayHeight)
-                    .align(Alignment.TopStart)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(size = BUTTON_CORNERS.dp)
-                    )
-                    .nestedScroll(nestedScrollConnection)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-            ) {
-                LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    state = historyScrollState,
-                    reverseLayout = true,
-                    verticalArrangement = Arrangement.spacedBy(
-                        2.dp,
-                        alignment = Alignment.Bottom
-                    ),
-                    horizontalAlignment = Alignment.End
-                ) {}
-
-                val numbers = calculation.numbers
-                val operations = calculation.operations
-                val isNewCalculation = calculation.stored && currentNumber.isNotEmpty()
-
-                val expression = buildString {
-                    if (!isNewCalculation) {
-                        for (i in operations.indices) {
-                            append("${numbers[i]} ")
-                            append(
-                                when (operations[i]) {
-                                    Operation.Plus -> '+'
-                                    Operation.Minus -> '-'
-                                    Operation.Mult -> '*'
-                                    Operation.Div -> '/'
-                                }
-                            )
-                            append(" ")
+                val onBackspace: () -> Unit = {
+                    if (calculation.stored && currentNumber.isBlank()) {
+                        currentNumber = "0"
+                    } else {
+                        if (currentNumber.isNotEmpty()) {
+                            currentNumber = currentNumber.dropLast(1)
+                        } else {
+                            rootComponent.removeLastSegment()
                         }
                     }
-                    append(
-                        currentNumber.ifEmpty {
-                            if (!isNewCalculation && numbers.size > operations.size) {
-                                numbers.last()
-                                    .toString()
-                            } else {
-                                "0"
+                }
+
+                val historyScrollState = rememberLazyListState()
+                val nestedScrollConnection = object : NestedScrollConnection {
+                    override fun onPreScroll(available: Offset, source: NestedScrollSource) =
+                        Offset.Zero
+
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource
+                    ) = Offset(0f, consumed.y)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .width(displayWidth)
+                        .height(displayHeight)
+                        .nestedScroll(nestedScrollConnection)
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        state = historyScrollState,
+                        contentPadding = PaddingValues(
+                            top = padding.calculateTopPadding()
+                        ),
+                        reverseLayout = true,
+                        verticalArrangement = Arrangement.spacedBy(
+                            2.dp,
+                            alignment = Alignment.Bottom
+                        ),
+                        horizontalAlignment = Alignment.End
+                    ) {}
+
+                    val numbers = calculation.numbers
+                    val operations = calculation.operations
+                    val isNewCalculation = calculation.stored && currentNumber.isNotEmpty()
+
+                    val expression = buildString {
+                        if (!isNewCalculation) {
+                            for (i in operations.indices) {
+                                append("${numbers[i]} ")
+                                append(
+                                    when (operations[i]) {
+                                        Operation.Plus -> '+'
+                                        Operation.Minus -> '-'
+                                        Operation.Mult -> '*'
+                                        Operation.Div -> '/'
+                                    }
+                                )
+                                append(" ")
                             }
                         }
+                        append(
+                            currentNumber.ifEmpty {
+                                if (!isNewCalculation && numbers.size > operations.size) {
+                                    numbers.last()
+                                        .toString()
+                                } else {
+                                    "0"
+                                }
+                            }
+                        )
+                    }
+
+                    val previewResult = calculatePreview(
+                        numbers = if (isNewCalculation) emptyList() else numbers,
+                        operations = if (isNewCalculation) emptyList() else operations,
+                        currentNumberStr = currentNumber
+                    )
+
+                    Text(
+                        text = buildAnnotatedString {
+                            append(expression)
+                            appendLine()
+                            withStyle(
+                                style = SpanStyle(
+                                    fontWeight = if (calculation.stored && currentNumber.isBlank()) {
+                                        FontWeight.Bold
+                                    } else {
+                                        null
+                                    }
+                                )
+                            ) {
+                                append(previewResult)
+                            }
+                        },
+                        modifier = Modifier.wrapContentHeight().fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        textAlign = TextAlign.End
                     )
                 }
 
-                val previewResult = calculatePreview(
-                    numbers = if (isNewCalculation) emptyList() else numbers,
-                    operations = if (isNewCalculation) emptyList() else operations,
-                    currentNumberStr = currentNumber
+                StaticCalculatorGrid(
+                    modifier = Modifier
+                        .padding(
+                            bottom = padding.calculateBottomPadding()
+                        )
+                        .width(buttonsWidth)
+                        .height(buttonsHeight)
+                        .align(Alignment.BottomEnd),
+                    onDigit = onDigit,
+                    onOperation = onOperation,
+                    onEquals = onEquals,
+                    onBackspace = onBackspace
                 )
 
-                Text(
-                    text = buildAnnotatedString {
-                        append(expression)
-                        appendLine()
-                        withStyle(
-                            style = SpanStyle(
-                                fontWeight = if (calculation.stored && currentNumber.isBlank()) {
-                                    FontWeight.Bold
-                                } else {
-                                    null
-                                }
-                            )
-                        ) {
-                            append(previewResult)
-                        }
-                    },
-                    modifier = Modifier.wrapContentHeight().fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    textAlign = TextAlign.End
+                ExpandableSettingsPanel(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = padding.calculateTopPadding()),
+                    buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
+                    theme = theme to { theme = it },
+                    contrast = contrast to { contrast = it },
+                    dynamic = dynamic?.let { state ->
+                        state.value to { dynamic.value = it }
+                    }
                 )
             }
-
-            StaticCalculatorGrid(
-                modifier = Modifier
-                    .width(buttonsWidth)
-                    .height(buttonsHeight)
-                    .align(Alignment.BottomEnd),
-                onDigit = onDigit,
-                onOperation = onOperation,
-                onEquals = onEquals,
-                onBackspace = onBackspace
-            )
         }
     }
 }
@@ -385,13 +423,15 @@ private fun StaticCalculatorGrid(
 @Composable
 @Preview
 private fun RootScreenPreview() {
-    RootScreen(
-        rootComponent = object : RootComponent {
-            override val calculation = MutableStateFlow(value = Calculation())
-            override fun addOperation(operation: Operation) {}
-            override fun finishCalculation() {}
-            override fun addNumber(number: Float) {}
-            override fun removeLastSegment() = 0f
-        }
-    )
+    AppTheme {
+        RootScreen(
+            rootComponent = object : RootComponent {
+                override val calculation = MutableStateFlow(value = Calculation())
+                override fun addOperation(operation: Operation) {}
+                override fun finishCalculation() {}
+                override fun addNumber(number: Float) {}
+                override fun removeLastSegment() = 0f
+            }
+        )
+    }
 }
