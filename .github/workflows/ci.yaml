@@ -14,6 +14,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Intentionally fail
+        run: exit 1  # ← всегда возвращает код ошибки
+
       - name: Say Hello
         run: echo "Hello, GitHub Actions! This is my first workflow!"
 
