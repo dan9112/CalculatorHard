@@ -2,9 +2,9 @@ name: Run All Tests
 
 on:
   push:
-    branches: [ "*" ]
+    branches: [ "master", "dev", "release/*" ]
   pull_request:
-    branches: [ "*" ]
+    branches: [ "master", "dev", "release/*" ]
 
 jobs:
   test:
