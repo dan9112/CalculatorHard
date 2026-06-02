@@ -28,17 +28,19 @@ split_commits = false
 
 # Настраиваем группы для категорий (эмодзи)
 commit_parsers = [
-    { message = "^feat", group = "🚀 Features" },
-    { message = "^fix", group = "🐛 Bug Fixes" },
-    { message = "^doc", group = "📚 Documentation" },
-    { message = "^perf", group = "⚡ Performance" },
-    { message = "^refactor", group = "🚜 Refactor" },
-    { message = "^style", group = "🎨 Styling" },
-    { message = "^test", group = "🧪 Testing" },
+    { body = ".*security", group = "🛡️ Security" },
+    { message = "^build", group = "📦 Build" },
     { message = "^chore\\(release\\):", skip = true }, # Пропускаем коммиты от самого бота релиза
     { message = "^chore", group = "⚙️ Miscellaneous Chores" },
-    { body = ".*security", group = "🛡️ Security" },
+    { message = "^ci", group = "👷 CI/CD" },
+    { message = "^doc", group = "📚 Documentation" },
+    { message = "^feat", group = "🚀 Features" },
+    { message = "^fix", group = "🐛 Bug Fixes" },
+    { message = "^perf", group = "⚡ Performance" },
+    { message = "^refactor", group = "🚜 Refactor" },
     { message = "^revert", group = "◀️ Revert" },
+    { message = "^style", group = "🎨 Styling" },
+    { message = "^test", group = "🧪 Testing" },
 ]
 
 # Защита от цикличных запусков
