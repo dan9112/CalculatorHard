@@ -46,7 +46,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.example.calculator"
-            packageVersion = "1.0.0"
+            packageVersion = providers.gradleProperty("version").orNull ?: "0.0.0"
         }
     }
 }
