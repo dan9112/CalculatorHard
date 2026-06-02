@@ -33,7 +33,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "CalculatorHard"
+rootProject.name = "calculator"
 includeBuild("build-logic")
 
 include(":androidApp")
