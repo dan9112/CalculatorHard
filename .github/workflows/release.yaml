@@ -1,19 +1,17 @@
 name: Release & Build
-
 on:
   push:
     branches:
-      - master # Мажорные релизы
-      - dev    # Минорные релизы
-
+      - master
+      - dev
 permissions:
-  contents: write # Нужно для пуша CHANGELOG и создания Release
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6 # Рекомендую v4, v6 еще нестабилен/редко используется
         with:
           fetch-depth: 0
 
@@ -24,34 +22,41 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Повышение версии и генерация красивого CHANGELOG
-      # Используем git-cliff. Он сам поймет, что было в [Unreleased] и оформит это.
+      # 1. Генерация CHANGELOG и вычисление НОВОЙ версии
       - name: Generate Changelog and Bump Version
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
-          config: cliff.toml # Файл конфига нужно добавить (см. совет ниже)
+          config: cliff.toml
           args: --verbose --bump
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Коммит обновленного CHANGELOG и версии обратно в ветку
+      # 2. ОБНОВЛЕНИЕ gradle.properties НОВОЙ версией (ДО коммита и сборки!)
+      - name: Update version in gradle.properties
+        run: |
+          NEW_VERSION="${{ steps.changelog.outputs.version }}"
+          CLEAN_VERSION=$(echo "$NEW_VERSION" | sed 's/^v//')
+          sed -i "s/^version=.*/version=$CLEAN_VERSION/" gradle.properties
+          echo "Версия в gradle.properties обновлена на: $CLEAN_VERSION"
+
+      # 3. Коммит обновленных файлов (теперь там уже НОВАЯ версия)
       - name: Commit CHANGELOG and Version
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md gradle.properties # или где у тебя хранится versionName
+          git add CHANGELOG.md gradle.properties
           git commit -m "chore(release): update changelog and bump version [skip ci]"
           git push
 
-      # 3. Сборка артефактов для всех платформ
+      # 4. Сборка артефактов (теперь они соберутся с НОВОЙ версией для Web, Desktop и Android)
       - name: Build Artifacts
         run: |
-          ./gradlew assembleRelease              # Android APK/AAB
-          ./gradlew packageReleaseJar            # Desktop JVM
-          ./gradlew wasmJsBrowserDistribution    # Web WASM
+          ./gradlew assembleRelease
+          ./gradlew packageReleaseJar
+          ./gradlew wasmJsBrowserDistribution
 
-      # 4. Создание GitHub Release с прикрепленными файлами
+      # 5. Создание GitHub Release
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
@@ -59,13 +64,7 @@ jobs:
           name: "Release ${{ steps.changelog.outputs.version }}"
           bodyFile: "CHANGELOG.md"
           artifacts: |
-            # --- ANDROID ---
             androidApp/build/outputs/apk/release/*.apk
-            # androidApp/build/outputs/bundle/release/*.aab # Раскомментируй, если нужен AAB
-            
-            # --- DESKTOP (JVM) ---
             composeApp/build/compose/binaries/main-release/app/*
             composeApp/build/libs/*.jar
-            
-            # --- WEB (WASM) ---
             composeApp/build/dist/wasmJs/productionExecutable/*
