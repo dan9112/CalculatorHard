@@ -11,7 +11,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = "org.example.calculator.data"
+        namespace = "org.example.calculator_hard.data"
     }
 
     iosArm64()
@@ -24,10 +24,6 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         browser()
-    }
-
-    compilerOptions {
-        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
     sourceSets {
@@ -55,12 +51,12 @@ kotlin {
 sqldelight {
     databases {
         create("SQLDelightDatabase") {
-            packageName.set("com.example.calculator")
+            packageName.set("com.example.calculator_hard")
             generateAsync.set(true)
         }
     }
 }
 
-// koinCompiler {
+//koinCompiler {
 //    compileSafety = false
-// }
+//}

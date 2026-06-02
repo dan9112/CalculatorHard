@@ -41,11 +41,11 @@ kotlin {
 
 compose.desktop {
     application {
-        mainClass = "org.example.calculator.MainKt"
+        mainClass = "org.example.calculator_hard.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "org.example.calculator"
+            packageName = "org.example.calculator_hard"
             packageVersion = "1.0.0"
         }
     }

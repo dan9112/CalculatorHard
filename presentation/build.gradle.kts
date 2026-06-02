@@ -10,7 +10,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = "org.example.calculator.presentation"
+        namespace = "org.example.calculator_hard.presentation"
 
         withHostTest { }
     }
@@ -51,6 +51,6 @@ kotlin {
     }
 }
 
-// koinCompiler {
+//koinCompiler {
 //    compileSafety = false
-// }
+//}

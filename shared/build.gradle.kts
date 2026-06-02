@@ -9,12 +9,12 @@ plugins {
 
 kotlin {
     android {
-        namespace = "org.example.calculator.shared"
+        namespace = "org.example.calculator_hard.shared"
     }
 
     listOf(
         iosArm64(),
-        iosSimulatorArm64(),
+        iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "Shared"
@@ -42,6 +42,7 @@ kotlin {
             api(projects.presentation)
             implementation(projects.domain)
             implementation(projects.data)
+
 
             implementation(project.dependencies.platform(libs.koin.bom))
             implementation(libs.koin.core)

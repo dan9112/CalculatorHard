@@ -8,7 +8,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = "org.example.calculator.domain"
+        namespace = "org.example.calculator_hard.domain"
     }
 
     iosArm64()

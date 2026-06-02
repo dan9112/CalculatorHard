@@ -32,7 +32,7 @@ struct ComposeRootView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIViewController {
         // Топ-левел функция в Kotlin экспортируется с суффиксом Kt
-        return MainViewControllerKt.mainViewController(rootHolder.rootComponent)
+        return MainViewControllerKt.MainViewController(rootHolder.rootComponent)
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
