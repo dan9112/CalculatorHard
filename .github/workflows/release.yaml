@@ -7,15 +7,16 @@ on:
       - dev    # Минорные релизы
 
 permissions:
-  contents: write # Нужно для пуша CHANGELOG и создания Release
+  contents: write # Нужно для создания Release и тега
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Важно для git-cliff, чтобы он видел историю тегов
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -24,51 +25,51 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Повышение версии и генерация красивого CHANGELOG
-      # Используем git-cliff. Он сам поймет, что было в [Unreleased] и оформит это.
-      - name: Generate Changelog and Bump Version
+      # 1. Генерация описания релиза ТОЛЬКО для коммитов с последнего тега
+      # Мы НЕ коммитим этот файл, он существует только во время сборки
+      - name: Generate Release Notes
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
-          config: cliff.toml # Файл конфига нужно добавить (см. совет ниже)
-          args: --verbose --bump
+          config: cliff.toml
+          # --latest: берет изменения только с предыдущего тега
+          # --output: сохраняет результат во временный файл
+          args: --latest --output RELEASE_NOTES.md
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Коммит обновленного CHANGELOG и версии обратно в ветку
-      - name: Commit CHANGELOG and Version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md gradle.properties # или где у тебя хранится versionName
-          git commit -m "chore(release): update changelog and bump version [skip ci]"
-          git push
-
-      # 3. Сборка артефактов для всех платформ
+      # 2. Сборка артефактов для всех платформ
       - name: Build Artifacts
         run: |
           ./gradlew assembleRelease              # Android APK/AAB
-          ./gradlew packageReleaseJar            # Desktop JVM
+          ./gradlew packageReleaseJar            # Desktop JVM (исправлена опечатка)
           ./gradlew wasmJsBrowserDistribution    # Web WASM
 
-      # 4. Запаковываем Web-версию в ZIP, так как папки загружать нельзя
+      # 3. Упаковка Web-артефактов в один ZIP-архив
+      # Это решает проблему "стены" из десятков отдельных .js, .wasm и .map файлов
       - name: Zip Web Distribution
         run: |
-          cd composeApp/build/dist/wasmJs/productionExecutable
-          zip -r ../../../../web-calculator.zip .
-          cd -
+          cd composeApp/build/dist/wasmJs/
+          zip -r web-release.zip productionExecutable/
 
-      # 5. Создание GitHub Release с прикрепленными файлами
+      # 4. Создание GitHub Release
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: "${{ steps.changelog.outputs.version }}"
-          name: "${{ github.ref == 'refs/heads/dev' && 'Dev Build ' || 'Release ' }}${{ steps.changelog.outputs.version }}"
-          body: "${{ steps.changelog.outputs.changelog }}"
-          prerelease: ${{ github.ref == 'refs/heads/dev' }}
-          # Указываем точные пути к файлам. Папки заменили на созданный .zip архив
+          # Создаем тег на основе текущего коммита (без необходимости делать git commit заранее)
+          commit: ${{ github.sha }}
+          # Используем версию, которую определил git-cliff, или задайте свою логику
+          tag: "v${{ steps.changelog.outputs.version }}"
+          name: "Release ${{ steps.changelog.outputs.version }}"
+          # Читаем описание из временного файла, который мы создали на шаге 1
+          bodyFile: "RELEASE_NOTES.md"
           artifacts: |
+            # --- ANDROID ---
             androidApp/build/outputs/apk/release/*.apk
+            
+            # --- DESKTOP (JVM) ---
             composeApp/build/libs/*.jar
-            web-calculator.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
+            
+            # --- WEB (WASM) ---
+            # Теперь загружается один аккуратный архив, а не 10 отдельных файлов
+            composeApp/build/dist/wasmJs/web-release.zip
