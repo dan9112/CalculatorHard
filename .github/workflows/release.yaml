@@ -11,60 +11,59 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6 # Рекомендую v4, v6 еще нестабилен/редко используется
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Генерация CHANGELOG и вычисление НОВОЙ версии
+      # 1. Вычисляем версию с учетом ветки
       - name: Generate Changelog and Bump Version
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          args: --verbose --bump
+          # Если это dev, передаем флаг --prerelease dev, который сделает версию вида 1.2.0-dev.0
+          args: >
+            --verbose --bump 
+            ${{ github.ref == 'refs/heads/dev' && '--prerelease dev' || '' }}
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. ОБНОВЛЕНИЕ gradle.properties НОВОЙ версией (ДО коммита и сборки!)
-      - name: Update version in gradle.properties
+      # 2. Вешаем локальный тег для Gradle
+      - name: Apply temporary local tag for Gradle
         run: |
           NEW_VERSION="${{ steps.changelog.outputs.version }}"
-          CLEAN_VERSION=$(echo "$NEW_VERSION" | sed 's/^v//')
-          sed -i "s/^version=.*/version=$CLEAN_VERSION/" gradle.properties
-          echo "Версия в gradle.properties обновлена на: $CLEAN_VERSION"
+          if [[ ! "$NEW_VERSION" =~ ^v ]]; then
+            NEW_VERSION="v$NEW_VERSION"
+          fi
+          git tag "$NEW_VERSION"
+          echo "Локальный тег $NEW_VERSION установлен"
 
-      # 3. Коммит обновленных файлов (теперь там уже НОВАЯ версия)
-      - name: Commit CHANGELOG and Version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md gradle.properties
-          git commit -m "chore(release): update changelog and bump version [skip ci]"
-          git push
-
-      # 4. Сборка артефактов (теперь они соберутся с НОВОЙ версией для Web, Desktop и Android)
+      # 3. Сборка артефактов (Web, Desktop, Android получат версию с -dev или чистую)
       - name: Build Artifacts
         run: |
           ./gradlew assembleRelease
           ./gradlew packageReleaseJar
           ./gradlew wasmJsBrowserDistribution
 
-      # 5. Создание GitHub Release
+      # 4. Публикация релиза на GitHub
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: "v${{ steps.changelog.outputs.version }}"
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          bodyFile: "CHANGELOG.md"
+          tag: "${{ steps.changelog.outputs.version }}"
+          name: "${{ github.ref == 'refs/heads/dev' && 'Dev Build ' || 'Release ' }}${{ steps.changelog.outputs.version }}"
+          body: "${{ steps.changelog.outputs.changelog }}"
+          # Важно: ставим галочку prerelease, если сборка идет из ветки dev
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
           artifacts: |
             androidApp/build/outputs/apk/release/*.apk
             composeApp/build/compose/binaries/main-release/app/*
             composeApp/build/libs/*.jar
             composeApp/build/dist/wasmJs/productionExecutable/*
+          token: ${{ secrets.GITHUB_TOKEN }}

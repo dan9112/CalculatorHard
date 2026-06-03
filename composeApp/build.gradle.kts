@@ -8,6 +8,30 @@ plugins {
     alias(libs.plugins.composeHotReload)
 }
 
+fun getVersionFromGit(): String =
+    try {
+        val rawTag =
+            providers
+                .exec {
+                    commandLine(
+                        "git",
+                        "describe",
+                        "--tags",
+                        "--abbrev=0",
+                        "--first-parent",
+                    )
+                }.standardOutput
+                .asText
+                .get()
+                .trim()
+
+        rawTag
+            .removePrefix("v")
+            .ifEmpty { "0.0.1-SNAPSHOT" }
+    } catch (_: Exception) {
+        "0.0.1-SNAPSHOT" // Фоллбек, если git не установлен или репозиторий пустой
+    }
+
 kotlin {
     jvm()
 
@@ -46,7 +70,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.example.calculator"
-            packageVersion = providers.gradleProperty("version").orNull ?: "0.0.0"
+            packageVersion = getVersionFromGit()
         }
     }
 }
