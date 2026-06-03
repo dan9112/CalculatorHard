@@ -67,10 +67,19 @@ compose.desktop {
     application {
         mainClass = "org.example.calculator.MainKt"
 
+        val fullVersion = getVersionFromGit()
+        val cleanVersion =
+            fullVersion
+                .substringBefore("-")
+                .ifEmpty { "0.0.1" }
+
+        println("Full version (for tags/logs): $fullVersion")
+        println("Clean version (for nativeDistributions): $cleanVersion")
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.example.calculator"
-            packageVersion = getVersionFromGit()
+            packageVersion = cleanVersion
         }
     }
 }
