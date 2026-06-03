@@ -3,8 +3,8 @@ name: Release & Build
 on:
   push:
     branches:
-      - master # Мажорные релизы
-      - dev    # Минорные/предрелизные сборки
+      - master
+      - dev
 
 permissions:
   contents: write
@@ -13,7 +13,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@
         with:
           fetch-depth: 0
 
@@ -24,10 +24,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Вычисляем версию и пишем текст во ВРЕМЕННЫЙ файл RELEASE_NOTES.md
-      # Мы используем --bump, чтобы git-cliff в памяти понял, какая версия идет следующей
-      # Никаких изменений в сам репозиторий или Git при этом НЕ вносится
+      # 1. Вычисляем версию (Только если есть триггер)
       - name: Generate Release Notes
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
@@ -36,19 +35,40 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Вешаем ЛОКАЛЬНЫЙ тег внутри оперативной памяти сервера для Gradle
-      # Это нужно, чтобы Gradle при сборке смог прочитать версию. ПУША в репозиторий тут НЕТ.
+      # 2. Поиск и удаление ПРЕДЫДУЩЕГО тега ТЕКУЩЕЙ ветки перед созданием нового
+      # Скрипт находит последний тег, проверяет его суффикс и удаляет через GitHub API
+      - name: Rotate Older Branch Tag
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
+        run: |
+          # Ищем последний существующий тег в истории этой ветки
+          OLD_TAG=$(git describe --tags --abbrev=0 --first-parent 2>/dev/null || echo "")
+          
+          if [ -n "$OLD_TAG" ]; then
+            # Проверяем изоляцию: dev удаляет только -dev теги, master — только чистые теги
+            if { [ "${{ github.ref_name }}" = "dev" ] && [[ "$OLD_TAG" == *-dev ]]; } || \
+               { [ "${{ github.ref_name }}" = "master" ] && [[ "$OLD_TAG" != *-dev ]]; }; then
+          
+              echo "Found old branch tag: $OLD_TAG. Deleting from GitHub..."
+          
+              # Удаляем релиз и тег через GitHub API, чтобы не ломать правила защиты веток
+              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://github.com{{ github.repository }}/releases/tags/$OLD_TAG" || true
+          
+              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://github.com{{ github.repository }}/git/refs/tags/$OLD_TAG" || true
+            else
+              echo "Old tag $OLD_TAG belongs to another branch. Skipping deletion."
+            fi
+          fi
+
+      # 3. Вешаем новый локальный тег в память для Gradle
       - name: Apply temporary local tag for Gradle
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         run: |
           RAW_VERSION="${{ steps.changelog.outputs.version }}"
-          
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="0.0.1"
-          fi
-          
+          if [ -z "$RAW_VERSION" ]; then RAW_VERSION="0.0.1"; fi
           CLEAN_VERSION=$(echo "$RAW_VERSION" | sed 's/^v//')
           
-          # МЕНЯЕМ СУФФИКС: Теперь для ветки dev строго пишем -dev
           if [ "${{ github.ref_name }}" = "dev" ]; then
             NEW_TAG="v${CLEAN_VERSION}-dev"
           else
@@ -59,32 +79,28 @@ jobs:
           echo "FINAL_TAG=$NEW_TAG" >> $GITHUB_ENV
           echo "Локальный тег $NEW_TAG установлен для Gradle"
 
-      # 3. Сборка артефактов (Gradle вызывает git describe и берет локальный тег из памяти)
-      # Все приложения внутри получают правильную красивую версию
+      # 4. Сборка артефактов (Запускается ВСЕГДА на любой push для проверки кода)
       - name: Build Artifacts
         run: |
           ./gradlew assembleRelease
           ./gradlew packageReleaseJar
           ./gradlew wasmJsBrowserDistribution
 
-      # 4. Упаковка Web-артефактов в один ZIP
+      # 5. Упаковка Web-артефактов в один ZIP (Запускается ВСЕГДА)
       - name: Zip Web Distribution
         run: |
           cd composeApp/build/dist/wasmJs/
           zip -r web-release.zip productionExecutable/
 
-      # 5. Создание GitHub Release через API платформы
-      # Этот шаг берет временный файл RELEASE_NOTES.md и делает релиз в обход защиты веток
+      # 6. Создание нового GitHub Release (Только если есть триггер)
       - name: Create GitHub Release
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ env.FINAL_TAG }}
           name: ${{ github.ref_name == 'dev' && format('Pre-release {0}', env.FINAL_TAG) || format('Release {0}', env.FINAL_TAG) }}
           prerelease: ${{ github.ref_name == 'dev' }}
-
-          # Читаем историю изменений из нашего временного файла
           bodyFile: "RELEASE_NOTES.md"
-
           artifacts: |
             androidApp/build/outputs/apk/release/*-release-unsigned.apk
             composeApp/build/libs/*-jvm.jar
