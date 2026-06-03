@@ -1,13 +1,11 @@
 name: Release & Build
-
 on:
   push:
     branches:
-      - master # Мажорные релизы
-      - dev    # Минорные релизы
-
+      - master
+      - dev
 permissions:
-  contents: write # Нужно для пуша CHANGELOG и создания Release
+  contents: write
 
 jobs:
   release:
@@ -24,48 +22,55 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Повышение версии и генерация красивого CHANGELOG
-      # Используем git-cliff. Он сам поймет, что было в [Unreleased] и оформит это.
+      # 1. Вычисляем версию с учетом ветки
       - name: Generate Changelog and Bump Version
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
-          config: cliff.toml # Файл конфига нужно добавить (см. совет ниже)
+          config: cliff.toml
           args: --verbose --bump
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Коммит обновленного CHANGELOG и версии обратно в ветку
-      - name: Commit CHANGELOG and Version
+      # 2. Вешаем локальный тег для Gradle
+      - name: Apply temporary local tag for Gradle
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md gradle.properties # или где у тебя хранится versionName
-          git commit -m "chore(release): update changelog and bump version [skip ci]"
-          git push
+          RAW_VERSION="${{ steps.changelog.outputs.version }}"
+          
+          # Убеждаемся, что префикс 'v' на месте
+          if [[ ! "$RAW_VERSION" =~ ^v ]]; then
+            RAW_VERSION="v$RAW_VERSION"
+          fi
+          
+          # Если сборка идет в ветке dev, принудительно дописываем суффикс к тегу
+          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            NEW_VERSION="${RAW_VERSION}-dev"
+          else
+            NEW_VERSION="$RAW_VERSION"
+          fi
+          
+          git tag "$NEW_VERSION"
+          echo "Локальный тег $NEW_VERSION успешно установлен для сборки Gradle"
 
-      # 3. Сборка артефактов для всех платформ
+      # 3. Сборка артефактов (Web, Desktop, Android получат версию с -dev или чистую)
       - name: Build Artifacts
         run: |
-          ./gradlew assembleRelease              # Android APK/AAB
-          ./gradlew packageReleaseJar            # Desktop JVM
-          ./gradlew wasmJsBrowserDistribution    # Web WASM
+          ./gradlew assembleRelease
+          ./gradlew packageReleaseJar
+          ./gradlew wasmJsBrowserDistribution
 
-      # 4. Создание GitHub Release с прикрепленными файлами
+      # 4. Публикация релиза на GitHub
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: "v${{ steps.changelog.outputs.version }}"
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          bodyFile: "CHANGELOG.md"
+          tag: "${{ steps.changelog.outputs.version }}"
+          name: "${{ github.ref == 'refs/heads/dev' && 'Dev Build ' || 'Release ' }}${{ steps.changelog.outputs.version }}"
+          body: "${{ steps.changelog.outputs.changelog }}"
+          # Важно: ставим галочку prerelease, если сборка идет из ветки dev
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
           artifacts: |
-            # --- ANDROID ---
             androidApp/build/outputs/apk/release/*.apk
-            # androidApp/build/outputs/bundle/release/*.aab # Раскомментируй, если нужен AAB
-            
-            # --- DESKTOP (JVM) ---
             composeApp/build/compose/binaries/main-release/app/*
             composeApp/build/libs/*.jar
-            
-            # --- WEB (WASM) ---
             composeApp/build/dist/wasmJs/productionExecutable/*
+          token: ${{ secrets.GITHUB_TOKEN }}
