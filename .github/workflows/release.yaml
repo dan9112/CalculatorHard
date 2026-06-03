@@ -24,51 +24,69 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Генерация текста изменений (БЕЗ коммита в репозиторий, только в память сборщика)
+      # 1. Вычисляем версию и пишем текст во ВРЕМЕННЫЙ файл RELEASE_NOTES.md
+      # Мы используем --bump, чтобы git-cliff в памяти понял, какая версия идет следующей
+      # Никаких изменений в сам репозиторий или Git при этом НЕ вносится
       - name: Generate Release Notes
         id: changelog
-        uses: orhun/git-cliff-action@v4 # ИСПРАВЛЕНО: убран пробел в названии
+        uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          # --latest берет коммиты с прошлого тега, --output пишет во временный файл
-          args: --latest --output RELEASE_NOTES.md
+          args: --verbose --bump --output RELEASE_NOTES.md
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Сборка артефактов
+      # 2. Вешаем ЛОКАЛЬНЫЙ тег внутри оперативной памяти сервера для Gradle
+      # Это нужно, чтобы Gradle при сборке смог прочитать версию. ПУША в репозиторий тут НЕТ.
+      - name: Apply temporary local tag for Gradle
+        run: |
+          RAW_VERSION="${{ steps.changelog.outputs.version }}"
+          
+          if [ -z "$RAW_VERSION" ]; then
+            RAW_VERSION="0.0.1"
+          fi
+          
+          CLEAN_VERSION=$(echo "$RAW_VERSION" | sed 's/^v//')
+          
+          # МЕНЯЕМ СУФФИКС: Теперь для ветки dev строго пишем -dev
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            NEW_TAG="v${CLEAN_VERSION}-dev"
+          else
+            NEW_TAG="v${CLEAN_VERSION}"
+          fi
+          
+          git tag "$NEW_TAG"
+          echo "FINAL_TAG=$NEW_TAG" >> $GITHUB_ENV
+          echo "Локальный тег $NEW_TAG установлен для Gradle"
+
+      # 3. Сборка артефактов (Gradle вызывает git describe и берет локальный тег из памяти)
+      # Все приложения внутри получают правильную красивую версию
       - name: Build Artifacts
         run: |
           ./gradlew assembleRelease
           ./gradlew packageReleaseJar
           ./gradlew wasmJsBrowserDistribution
 
-      # 3. Упаковка Web-артефактов в один ZIP (РЕШАЕТ ПРОБЛЕМУ СЫРЫХ ФАЙЛОВ)
+      # 4. Упаковка Web-артефактов в один ZIP
       - name: Zip Web Distribution
         run: |
           cd composeApp/build/dist/wasmJs/
           zip -r web-release.zip productionExecutable/
 
-      # 4. Создание GitHub Release
+      # 5. Создание GitHub Release через API платформы
+      # Этот шаг берет временный файл RELEASE_NOTES.md и делает релиз в обход защиты веток
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          # Если ветка dev -> добавляем постфикс -beta. Если master -> обычная версия.
-          tag: ${{ github.ref_name == 'dev' && format('v{0}-beta', steps.changelog.outputs.version) || format('v{0}', steps.changelog.outputs.version) }}
-          name: ${{ github.ref_name == 'dev' && format('Pre-release v{0}-beta', steps.changelog.outputs.version) || format('Release v{0}', steps.changelog.outputs.version) }}
-
-          # Включаем режим Pre-release только для ветки dev
+          tag: ${{ env.FINAL_TAG }}
+          name: ${{ github.ref_name == 'dev' && format('Pre-release {0}', env.FINAL_TAG) || format('Release {0}', env.FINAL_TAG) }}
           prerelease: ${{ github.ref_name == 'dev' }}
 
-          # Берем текст из временного файла, который мы создали на шаге 1
+          # Читаем историю изменений из нашего временного файла
           bodyFile: "RELEASE_NOTES.md"
 
           artifacts: |
-            # --- ANDROID ---
-            androidApp/build/outputs/apk/release/*.apk
-            
-            # --- DESKTOP (JVM) ---
-            composeApp/build/libs/*.jar
-            
-            # --- WEB (WASM) ---
-            # Теперь загружается ОДИН архив, а не куча сырых файлов
+            androidApp/build/outputs/apk/release/*-release-unsigned.apk
+            composeApp/build/libs/*-jvm.jar
             composeApp/build/dist/wasmJs/web-release.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
