@@ -51,21 +51,24 @@ jobs:
           ./gradlew packageReleaseJar            # Desktop JVM
           ./gradlew wasmJsBrowserDistribution    # Web WASM
 
-      # 4. Создание GitHub Release с прикрепленными файлами
+      # 4. Запаковываем Web-версию в ZIP, так как папки загружать нельзя
+      - name: Zip Web Distribution
+        run: |
+          cd composeApp/build/dist/wasmJs/productionExecutable
+          zip -r ../../../../web-calculator.zip .
+          cd -
+
+      # 5. Создание GitHub Release с прикрепленными файлами
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: "v${{ steps.changelog.outputs.version }}"
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          bodyFile: "CHANGELOG.md"
+          tag: "${{ steps.changelog.outputs.version }}"
+          name: "${{ github.ref == 'refs/heads/dev' && 'Dev Build ' || 'Release ' }}${{ steps.changelog.outputs.version }}"
+          body: "${{ steps.changelog.outputs.changelog }}"
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
+          # Указываем точные пути к файлам. Папки заменили на созданный .zip архив
           artifacts: |
-            # --- ANDROID ---
             androidApp/build/outputs/apk/release/*.apk
-            # androidApp/build/outputs/bundle/release/*.aab # Раскомментируй, если нужен AAB
-            
-            # --- DESKTOP (JVM) ---
-            composeApp/build/compose/binaries/main-release/app/*
             composeApp/build/libs/*.jar
-            
-            # --- WEB (WASM) ---
-            composeApp/build/dist/wasmJs/productionExecutable/*
+            web-calculator.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
