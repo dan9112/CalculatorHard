@@ -5,6 +5,30 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+fun getVersionFromGit(): String =
+    try {
+        val rawTag =
+            providers
+                .exec {
+                    commandLine(
+                        "git",
+                        "describe",
+                        "--tags",
+                        "--abbrev=0",
+                        "--first-parent",
+                    )
+                }.standardOutput
+                .asText
+                .get()
+                .trim()
+
+        rawTag
+            .removePrefix("v")
+            .ifEmpty { "0.0.1-SNAPSHOT" }
+    } catch (_: Exception) {
+        "0.0.1-SNAPSHOT" // Фоллбек, если git не установлен или репозиторий пустой
+    }
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
@@ -30,7 +54,7 @@ android {
                 .get()
                 .toInt()
         versionCode = 1
-        versionName = providers.gradleProperty("version").orNull ?: "0.0.0"
+        versionName = getVersionFromGit()
     }
     packaging {
         resources {
