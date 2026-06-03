@@ -4,10 +4,10 @@ on:
   push:
     branches:
       - master # Мажорные релизы
-      - dev    # Минорные релизы
+      - dev    # Минорные/предрелизные сборки
 
 permissions:
-  contents: write # Нужно для пуша CHANGELOG и создания Release
+  contents: write
 
 jobs:
   release:
@@ -24,48 +24,51 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Повышение версии и генерация красивого CHANGELOG
-      # Используем git-cliff. Он сам поймет, что было в [Unreleased] и оформит это.
-      - name: Generate Changelog and Bump Version
+      # 1. Генерация текста изменений (БЕЗ коммита в репозиторий, только в память сборщика)
+      - name: Generate Release Notes
         id: changelog
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@v4 # ИСПРАВЛЕНО: убран пробел в названии
         with:
-          config: cliff.toml # Файл конфига нужно добавить (см. совет ниже)
-          args: --verbose --bump
+          config: cliff.toml
+          # --latest берет коммиты с прошлого тега, --output пишет во временный файл
+          args: --latest --output RELEASE_NOTES.md
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Коммит обновленного CHANGELOG и версии обратно в ветку
-      - name: Commit CHANGELOG and Version
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md gradle.properties # или где у тебя хранится versionName
-          git commit -m "chore(release): update changelog and bump version [skip ci]"
-          git push
-
-      # 3. Сборка артефактов для всех платформ
+      # 2. Сборка артефактов
       - name: Build Artifacts
         run: |
-          ./gradlew assembleRelease              # Android APK/AAB
-          ./gradlew packageReleaseJar            # Desktop JVM
-          ./gradlew wasmJsBrowserDistribution    # Web WASM
+          ./gradlew assembleRelease
+          ./gradlew packageReleaseJar
+          ./gradlew wasmJsBrowserDistribution
 
-      # 4. Создание GitHub Release с прикрепленными файлами
+      # 3. Упаковка Web-артефактов в один ZIP (РЕШАЕТ ПРОБЛЕМУ СЫРЫХ ФАЙЛОВ)
+      - name: Zip Web Distribution
+        run: |
+          cd composeApp/build/dist/wasmJs/
+          zip -r web-release.zip productionExecutable/
+
+      # 4. Создание GitHub Release
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: "v${{ steps.changelog.outputs.version }}"
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          bodyFile: "CHANGELOG.md"
+          # Если ветка dev -> добавляем постфикс -beta. Если master -> обычная версия.
+          tag: ${{ github.ref_name == 'dev' && format('v{0}-beta', steps.changelog.outputs.version) || format('v{0}', steps.changelog.outputs.version) }}
+          name: ${{ github.ref_name == 'dev' && format('Pre-release v{0}-beta', steps.changelog.outputs.version) || format('Release v{0}', steps.changelog.outputs.version) }}
+
+          # Включаем режим Pre-release только для ветки dev
+          prerelease: ${{ github.ref_name == 'dev' }}
+
+          # Берем текст из временного файла, который мы создали на шаге 1
+          bodyFile: "RELEASE_NOTES.md"
+
           artifacts: |
             # --- ANDROID ---
             androidApp/build/outputs/apk/release/*.apk
-            # androidApp/build/outputs/bundle/release/*.aab # Раскомментируй, если нужен AAB
             
             # --- DESKTOP (JVM) ---
-            composeApp/build/compose/binaries/main-release/app/*
             composeApp/build/libs/*.jar
             
             # --- WEB (WASM) ---
-            composeApp/build/dist/wasmJs/productionExecutable/*
+            # Теперь загружается ОДИН архив, а не куча сырых файлов
+            composeApp/build/dist/wasmJs/web-release.zip
