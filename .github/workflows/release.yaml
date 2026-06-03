@@ -11,12 +11,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -28,22 +28,29 @@ jobs:
         uses: orhun/git-cliff-action@v4
         with:
           config: cliff.toml
-          # Если это dev, передаем флаг --prerelease dev, который сделает версию вида 1.2.0-dev.0
-          args: >
-            --verbose --bump 
-            ${{ github.ref == 'refs/heads/dev' && '--prerelease dev' || '' }}
+          args: --verbose --bump
         env:
           GITHUB_REPO: ${{ github.repository }}
 
       # 2. Вешаем локальный тег для Gradle
       - name: Apply temporary local tag for Gradle
         run: |
-          NEW_VERSION="${{ steps.changelog.outputs.version }}"
-          if [[ ! "$NEW_VERSION" =~ ^v ]]; then
-            NEW_VERSION="v$NEW_VERSION"
+          RAW_VERSION="${{ steps.changelog.outputs.version }}"
+          
+          # Убеждаемся, что префикс 'v' на месте
+          if [[ ! "$RAW_VERSION" =~ ^v ]]; then
+            RAW_VERSION="v$RAW_VERSION"
           fi
+          
+          # Если сборка идет в ветке dev, принудительно дописываем суффикс к тегу
+          if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+            NEW_VERSION="${RAW_VERSION}-dev"
+          else
+            NEW_VERSION="$RAW_VERSION"
+          fi
+          
           git tag "$NEW_VERSION"
-          echo "Локальный тег $NEW_VERSION установлен"
+          echo "Локальный тег $NEW_VERSION успешно установлен для сборки Gradle"
 
       # 3. Сборка артефактов (Web, Desktop, Android получат версию с -dev или чистую)
       - name: Build Artifacts
