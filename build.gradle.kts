@@ -45,7 +45,7 @@ spotless {
         ktlint(ktlintVersion)
     }
 
-    // Настройки для Markdown (например, CHANGELOG.md)
+    // Настройки для Markdown
     format("markdown") {
         target("**/*.md")
         // Можно добавить форматтер для markdown, например, flexmark
