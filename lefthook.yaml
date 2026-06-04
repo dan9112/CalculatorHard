@@ -1,33 +1,31 @@
 pre-commit:
   parallel: false
   commands:
-    # Форматируем ВЕСЬ проект (Kotlin, KTS, Markdown) через Spotless
+    # 1. Форматируем СТРОГО те файлы, которые идут в текущий коммит
     spotless-format:
-      run: ./gradlew spotlessApply && git add {staged_files}
-
-    # Проверяем, что после форматирования не осталось не добавленных изменений
-    check-format:
-      run: git diff --exit-code || (echo "❌ Файлы были отформатированы. Сделайте git add и повторите коммит." && exit 1)
+      # {staged_files} передает только файлы из git add. Rest файлов хук вообще не увидит.
+      run: ./gradlew spotlessApply -PspotlessFiles="{staged_files}"
+      # Автоматически обновляет индекс, если файлы внутри коммита были отформатированы
+      stage_fixed: true
 
     # 2. Запуск тестов перед коммитом (отклонит коммит, если тесты упадут)
-    # ВНИМАНИЕ: Если тестов много, это может быть долго.
-    # Если тормозит - перенеси этот блок в секцию "pre-push".
     run-tests:
       run: ./gradlew test testDebugUnitTest
 
-post-commit:
+# 3. Срабатывает ПОСЛЕ проверок pre-commit, но ДО финальной записи коммита
+prepare-commit-msg:
   commands:
-    # 3. Добавление изменений в CHANGELOG для фиче-веток
-    append-changelog:
+    append-changelog-to-body:
       run: |
-        BRANCH=$(git branch --show-current)
-        if [[ "$BRANCH" != "master" && "$BRANCH" != "dev" && "$BRANCH" != "HEAD" ]]; then
-          # Берем сообщение последнего коммита и дописываем в конец файла
-          MSG=$(git log -1 --pretty=%s)
-          echo "- [${BRANCH}] ${MSG}" >> CHANGELOG.md
-          git add CHANGELOG.md
-          # Амэндим коммит, чтобы CHANGELOG попал в этот же коммит
-          git commit --amend --no-edit --no-verify
+        COMMIT_MSG_FILE="{1}"
+        COMMIT_HEADER=$(head -n 1 "$COMMIT_MSG_FILE")
+        
+        # Проверяем, начинается ли заголовок с 'chore(release):'
+        if [[ "$COMMIT_HEADER" =~ ^chore\(release\): ]]; then
+          echo -e "\n### Changelog for this build:" >> "$COMMIT_MSG_FILE"
+        
+          # Генерируем только новые изменения (unreleased)
+          git-cliff --unreleased --strip all >> "$COMMIT_MSG_FILE"
+        
+          echo "💡 Lefthook: Appended changelog delta directly into the commit body."
         fi
-      # Выполняем только если коммит не был сделан с флагом --no-verify
-      exclude_tags: "skip-changelog"

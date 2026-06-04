@@ -3,8 +3,8 @@ name: Release & Build
 on:
   push:
     branches:
-      - master # Мажорные релизы
-      - dev    # Минорные/предрелизные сборки
+      - master
+      - dev
 
 permissions:
   contents: write
@@ -24,10 +24,9 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Вычисляем версию и пишем текст во ВРЕМЕННЫЙ файл RELEASE_NOTES.md
-      # Мы используем --bump, чтобы git-cliff в памяти понял, какая версия идет следующей
-      # Никаких изменений в сам репозиторий или Git при этом НЕ вносится
+      # 1. Вычисляем версию (Только если есть триггер)
       - name: Generate Release Notes
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         id: changelog
         uses: orhun/git-cliff-action@v4
         with:
@@ -36,19 +35,60 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Вешаем ЛОКАЛЬНЫЙ тег внутри оперативной памяти сервера для Gradle
-      # Это нужно, чтобы Gradle при сборке смог прочитать версию. ПУША в репозиторий тут НЕТ.
-      - name: Apply temporary local tag for Gradle
+      # 2. Ротация тегов: на dev — копим, на master — начисто удаляем все старые -dev теги
+      - name: Rotate and Clean Prerelease Tags
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         run: |
-          RAW_VERSION="${{ steps.changelog.outputs.version }}"
-          
-          if [ -z "$RAW_VERSION" ]; then
-            RAW_VERSION="0.0.1"
+          # 1. Если мы на ветке dev, ничего не удаляем, просто пропускаем шаг
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "Branch is dev. Accumulating prerelease tags without deletion."
           fi
           
+          # 2. Ротация тегов: на dev — копим, на master — удаляем ТОЛЬКО те -dev теги, которые вливаются прямо сейчас
+      - name: Rotate and Clean Prerelease Tags
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "Branch is dev. Accumulating prerelease tags without deletion."
+          fi
+          
+          if [ "${{ github.ref_name }}" = "master" ]; then
+            echo "Branch is master. Starting targeted cleanup of merged -dev prereleases..."
+          
+            # 1. Берем историю текущей ветки master (включая влитый dev)
+            # 2. Ищем в ней коммиты, на которых висят теги
+            # 3. Фильтруем строго теги, которые заканчиваются на -dev
+            TARGET_DEV_TAGS=$(git log --merge --format="%d" 2>/dev/null | grep -o 'tag: [^,)]*' | sed 's/tag: //' | grep -- '-dev$' || echo "")
+          
+            if [ -z "$TARGET_DEV_TAGS" ]; then
+              echo "No merged -dev tags found in this branch history to clean up."
+            else
+              # Удаляем дубликаты, если на один коммит попало несколько тегов
+              UNIQUE_TAGS=$(echo "$TARGET_DEV_TAGS" | sort -u)
+          
+              for TAG in $UNIQUE_TAGS; do
+                echo "Cleaning up merged prerelease tag from this branch: $TAG"
+          
+                # Удаляем релиз из интерфейса GitHub
+                curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://github.com{{ github.repository }}/releases/tags/$TAG" || true
+          
+                # Удаляем физический Git-тег с сервера
+                curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://github.com{{ github.repository }}/git/refs/tags/$TAG" || true
+              done
+              echo "All merged -dev tags for this specific release have been cleaned up."
+            fi
+          fi
+
+      # 3. Вешаем новый локальный тег в память для Gradle
+      - name: Apply temporary local tag for Gradle
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
+        run: |
+          RAW_VERSION="${{ steps.changelog.outputs.version }}"
+          if [ -z "$RAW_VERSION" ]; then RAW_VERSION="0.0.1"; fi
           CLEAN_VERSION=$(echo "$RAW_VERSION" | sed 's/^v//')
           
-          # МЕНЯЕМ СУФФИКС: Теперь для ветки dev строго пишем -dev
           if [ "${{ github.ref_name }}" = "dev" ]; then
             NEW_TAG="v${CLEAN_VERSION}-dev"
           else
@@ -59,32 +99,28 @@ jobs:
           echo "FINAL_TAG=$NEW_TAG" >> $GITHUB_ENV
           echo "Локальный тег $NEW_TAG установлен для Gradle"
 
-      # 3. Сборка артефактов (Gradle вызывает git describe и берет локальный тег из памяти)
-      # Все приложения внутри получают правильную красивую версию
+      # 4. Сборка артефактов (Запускается ВСЕГДА на любой push для проверки кода)
       - name: Build Artifacts
         run: |
           ./gradlew assembleRelease
           ./gradlew packageReleaseJar
           ./gradlew wasmJsBrowserDistribution
 
-      # 4. Упаковка Web-артефактов в один ZIP
+      # 5. Упаковка Web-артефактов в один ZIP (Запускается ВСЕГДА)
       - name: Zip Web Distribution
         run: |
           cd composeApp/build/dist/wasmJs/
           zip -r web-release.zip productionExecutable/
 
-      # 5. Создание GitHub Release через API платформы
-      # Этот шаг берет временный файл RELEASE_NOTES.md и делает релиз в обход защиты веток
+      # 6. Создание нового GitHub Release (Только если есть триггер)
       - name: Create GitHub Release
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ env.FINAL_TAG }}
           name: ${{ github.ref_name == 'dev' && format('Pre-release {0}', env.FINAL_TAG) || format('Release {0}', env.FINAL_TAG) }}
           prerelease: ${{ github.ref_name == 'dev' }}
-
-          # Читаем историю изменений из нашего временного файла
           bodyFile: "RELEASE_NOTES.md"
-
           artifacts: |
             androidApp/build/outputs/apk/release/*-release-unsigned.apk
             composeApp/build/libs/*-jvm.jar
