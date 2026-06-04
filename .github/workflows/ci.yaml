@@ -3,31 +3,55 @@ name: CI Checks
 on:
   pull_request:
     branches: [ dev, master ]
+    types: [ opened, synchronize ]
+
+permissions:
+  pull-requests: write
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: gradle
 
+      # Генерируем CHANGELOG для текущего PR в файл
+      - name: Generate PR Changelog
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --verbose --bump --output PR_CHANGELOG.md
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+
+      # Находим текущий PR и обновляем его описание сгенерированным чейнджлогом
+      - name: Update Pull Request Description
+        uses: jwalton/gh-find-current-pr@v1
+        id: findPr
+      - name: Push Changelog to PR Body
+        if: success() && steps.findPr.outputs.number != ''
+        run: |
+          CHANGELOG_CONTENT=$(cat PR_CHANGELOG.md)
+          gh pr edit ${{ steps.findPr.outputs.number }} --body "$CHANGELOG_CONTENT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 1. Строгая проверка стиля (на сервере мы не чиним, а падаем, если стиль бит)
       - name: Run Spotless Check
         run: ./gradlew spotlessCheck
 
-      # 2. Запуск всех тестов
       - name: Run Tests
-        run: ./gradlew test
+        run: ./gradlew test testDebugUnitTest

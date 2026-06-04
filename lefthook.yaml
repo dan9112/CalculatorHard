@@ -1,31 +1,12 @@
 pre-commit:
   parallel: false
   commands:
-    # Форматируем ТОЛЬКО файлы Kotlin и Gradle-скрипты, попавшие в коммит
+    # Проверяем и форматируем только Kotlin файлы из текущего git add
     spotless-format:
-      # Фильтр: обрабатывать только файлы .kt и .kts
       glob: "*.{kt,kts}"
       run: ./gradlew spotlessApply -PspotlessFiles="{staged_files}"
       stage_fixed: true
 
-    # Запуск тестов перед коммитом
+    # Прогон юнит-тестов перед фиксацией коммита
     run-tests:
       run: ./gradlew test testDebugUnitTest
-
-# 3. Срабатывает ПОСЛЕ проверок pre-commit, но ДО финальной записи коммита
-prepare-commit-msg:
-  commands:
-    append-changelog-to-body:
-      run: |
-        COMMIT_MSG_FILE="{1}"
-        COMMIT_HEADER=$(head -n 1 "$COMMIT_MSG_FILE")
-        
-        # Проверяем, начинается ли заголовок с 'chore(release):'
-        if [[ "$COMMIT_HEADER" =~ ^chore\(release\): ]]; then
-          echo -e "\n### Changelog for this build:" >> "$COMMIT_MSG_FILE"
-        
-          # Генерируем только новые изменения (unreleased)
-          git-cliff --unreleased --strip all >> "$COMMIT_MSG_FILE"
-        
-          echo "💡 Lefthook: Appended changelog delta directly into the commit body."
-        fi
