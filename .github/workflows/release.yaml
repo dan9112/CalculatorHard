@@ -35,29 +35,39 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Поиск и удаление ПРЕДЫДУЩЕГО тега ТЕКУЩЕЙ ветки перед созданием нового
-      # Скрипт находит последний тег, проверяет его суффикс и удаляет через GitHub API
-      - name: Rotate Older Branch Tag
+      # 2. Ротация тегов: на dev — копим, на master — начисто удаляем все старые -dev теги
+      - name: Rotate and Clean Prerelease Tags
         if: startsWith(github.event.head_commit.message, 'chore(release):')
         run: |
-          # Ищем последний существующий тег в истории этой ветки
-          OLD_TAG=$(git describe --tags --abbrev=0 --first-parent 2>/dev/null || echo "")
+          # 1. Если мы на ветке dev, ничего не удаляем, просто пропускаем шаг
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "Branch is dev. Accumulating prerelease tags without deletion."
+          fi
           
-          if [ -n "$OLD_TAG" ]; then
-            # Проверяем изоляцию: dev удаляет только -dev теги, master — только чистые теги
-            if { [ "${{ github.ref_name }}" = "dev" ] && [[ "$OLD_TAG" == *-dev ]]; } || \
-               { [ "${{ github.ref_name }}" = "master" ] && [[ "$OLD_TAG" != *-dev ]]; }; then
+          # 2. Если мы на ветке master, запускаем полную зачистку всех -dev тегов
+          if [ "${{ github.ref_name }}" = "master" ]; then
+            echo "Branch is master. Starting total cleanup of all legacy -dev prereleases..."
           
-              echo "Found old branch tag: $OLD_TAG. Deleting from GitHub..."
+            # Получаем список всех тегов из GitHub API, фильтруем те, что заканчиваются на -dev
+            DEV_TAGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://github.com{{ github.repository }}/releases" | \
+              jq -r '.[] | select(.prerelease == true) | .tag_name' | grep -- '-dev$' || echo "")
           
-              # Удаляем релиз и тег через GitHub API, чтобы не ломать правила защиты веток
-              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://github.com{{ github.repository }}/releases/tags/$OLD_TAG" || true
-          
-              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://github.com{{ github.repository }}/git/refs/tags/$OLD_TAG" || true
+            if [ -z "$DEV_TAGS" ]; then
+              echo "No old -dev tags found to clean up."
             else
-              echo "Old tag $OLD_TAG belongs to another branch. Skipping deletion."
+              for TAG in $DEV_TAGS; do
+                echo "Cleaning up stale prerelease tag: $TAG"
+          
+                # Удаляем сам релиз из интерфейса GitHub
+                curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://github.com{{ github.repository }}/releases/tags/$TAG" || true
+          
+                # Удаляем физический Git-тег с сервера
+                curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://github.com{{ github.repository }}/git/refs/tags/$TAG" || true
+              done
+              echo "All legacy -dev tags have been successfully wiped out."
             fi
           fi
 
