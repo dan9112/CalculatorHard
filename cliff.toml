@@ -46,3 +46,16 @@ commit_parsers = [
 # Защита от цикличных запусков
 protect_breaking_commits = false
 skip_tags = ""
+
+# Настройка автоматического повышения версий
+[bump]
+features_always_bump_minor = true
+breaking_always_bump_major = true
+
+# Позволяет git-cliff автоматически сбрасывать/игнорировать суффиксы вроде -dev при расчете
+initial_version = "0.0.0"
+
+# Карта соответствия коммитов и изменения семантической версии
+major_version_bump_motor = "breaking"
+minor_version_bump_motor = "feat"
+patch_version_bump_motor = "fix|perf|refactor|style|build|ci|test|chore"

@@ -1,14 +1,14 @@
 pre-commit:
   parallel: false
   commands:
-    # 1. Форматируем СТРОГО те файлы, которые идут в текущий коммит
+    # Форматируем ТОЛЬКО файлы Kotlin и Gradle-скрипты, попавшие в коммит
     spotless-format:
-      # {staged_files} передает только файлы из git add. Rest файлов хук вообще не увидит.
+      # Фильтр: обрабатывать только файлы .kt и .kts
+      glob: "*.{kt,kts}"
       run: ./gradlew spotlessApply -PspotlessFiles="{staged_files}"
-      # Автоматически обновляет индекс, если файлы внутри коммита были отформатированы
       stage_fixed: true
 
-    # 2. Запуск тестов перед коммитом (отклонит коммит, если тесты упадут)
+    # Запуск тестов перед коммитом
     run-tests:
       run: ./gradlew test testDebugUnitTest
 

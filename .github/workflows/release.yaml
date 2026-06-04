@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          fetch-tags: true # Гарантирует, что GitHub скачает базовые теги вроде v0.0.0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -24,7 +25,7 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 1. Вычисляем версию (Только если есть триггер)
+      # 1. Вычисляем версию и пишем текст во временный файл
       - name: Generate Release Notes
         if: startsWith(github.event.head_commit.message, 'chore(release):')
         id: changelog
@@ -35,16 +36,7 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
-      # 2. Ротация тегов: на dev — копим, на master — начисто удаляем все старые -dev теги
-      - name: Rotate and Clean Prerelease Tags
-        if: startsWith(github.event.head_commit.message, 'chore(release):')
-        run: |
-          # 1. Если мы на ветке dev, ничего не удаляем, просто пропускаем шаг
-          if [ "${{ github.ref_name }}" = "dev" ]; then
-            echo "Branch is dev. Accumulating prerelease tags without deletion."
-          fi
-          
-          # 2. Ротация тегов: на dev — копим, на master — удаляем ТОЛЬКО те -dev теги, которые вливаются прямо сейчас
+      # 2. Ротация тегов: на dev — копим, на master — удаляем ТОЛЬКО те -dev теги, которые вливаются прямо сейчас
       - name: Rotate and Clean Prerelease Tags
         if: startsWith(github.event.head_commit.message, 'chore(release):')
         run: |
@@ -55,25 +47,17 @@ jobs:
           if [ "${{ github.ref_name }}" = "master" ]; then
             echo "Branch is master. Starting targeted cleanup of merged -dev prereleases..."
           
-            # 1. Берем историю текущей ветки master (включая влитый dev)
-            # 2. Ищем в ней коммиты, на которых висят теги
-            # 3. Фильтруем строго теги, которые заканчиваются на -dev
+            # Находим дев-теги строго в истории слияния текущей ветки master
             TARGET_DEV_TAGS=$(git log --merge --format="%d" 2>/dev/null | grep -o 'tag: [^,)]*' | sed 's/tag: //' | grep -- '-dev$' || echo "")
           
             if [ -z "$TARGET_DEV_TAGS" ]; then
               echo "No merged -dev tags found in this branch history to clean up."
             else
-              # Удаляем дубликаты, если на один коммит попало несколько тегов
               UNIQUE_TAGS=$(echo "$TARGET_DEV_TAGS" | sort -u)
-          
               for TAG in $UNIQUE_TAGS; do
                 echo "Cleaning up merged prerelease tag from this branch: $TAG"
-          
-                # Удаляем релиз из интерфейса GitHub
                 curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   "https://github.com{{ github.repository }}/releases/tags/$TAG" || true
-          
-                # Удаляем физический Git-тег с сервера
                 curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   "https://github.com{{ github.repository }}/git/refs/tags/$TAG" || true
               done
@@ -81,23 +65,26 @@ jobs:
             fi
           fi
 
-      # 3. Вешаем новый локальный тег в память для Gradle
+      # 3. Вешаем ЛОКАЛЬНЫЙ тег внутри оперативной памяти сервера для Gradle
       - name: Apply temporary local tag for Gradle
         if: startsWith(github.event.head_commit.message, 'chore(release):')
         run: |
           RAW_VERSION="${{ steps.changelog.outputs.version }}"
           if [ -z "$RAW_VERSION" ]; then RAW_VERSION="0.0.1"; fi
-          CLEAN_VERSION=$(echo "$RAW_VERSION" | sed 's/^v//')
           
+          # Очищаем версию от всех возможных хвостов (-dev, v), оставляя строго ЦИФРЫ (например, 0.0.2)
+          CLEAN_VERSION=$(echo "$RAW_VERSION" | sed 's/^v//' | sed 's/-.*//')
+          
+          # Формируем тег заново вручную, исключая любые дубликаты
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            NEW_TAG="v${CLEAN_VERSION}-dev"
+            FINAL_TAG="v${CLEAN_VERSION}-dev"
           else
-            NEW_TAG="v${CLEAN_VERSION}"
+            FINAL_TAG="v${CLEAN_VERSION}"
           fi
           
-          git tag "$NEW_TAG"
-          echo "FINAL_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Локальный тег $NEW_TAG установлен для Gradle"
+          git tag "$FINAL_TAG"
+          echo "FINAL_TAG=$FINAL_TAG" >> $GITHUB_ENV
+          echo "Локальный тег $FINAL_TAG установлен для Gradle"
 
       # 4. Сборка артефактов (Запускается ВСЕГДА на любой push для проверки кода)
       - name: Build Artifacts
