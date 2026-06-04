@@ -44,22 +44,32 @@ jobs:
             echo "Branch is dev. Accumulating prerelease tags without deletion."
           fi
           
-          # 2. Если мы на ветке master, запускаем полную зачистку всех -dev тегов
+          # 2. Ротация тегов: на dev — копим, на master — удаляем ТОЛЬКО те -dev теги, которые вливаются прямо сейчас
+      - name: Rotate and Clean Prerelease Tags
+        if: startsWith(github.event.head_commit.message, 'chore(release):')
+        run: |
+          if [ "${{ github.ref_name }}" = "dev" ]; then
+            echo "Branch is dev. Accumulating prerelease tags without deletion."
+          fi
+          
           if [ "${{ github.ref_name }}" = "master" ]; then
-            echo "Branch is master. Starting total cleanup of all legacy -dev prereleases..."
+            echo "Branch is master. Starting targeted cleanup of merged -dev prereleases..."
           
-            # Получаем список всех тегов из GitHub API, фильтруем те, что заканчиваются на -dev
-            DEV_TAGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://github.com{{ github.repository }}/releases" | \
-              jq -r '.[] | select(.prerelease == true) | .tag_name' | grep -- '-dev$' || echo "")
+            # 1. Берем историю текущей ветки master (включая влитый dev)
+            # 2. Ищем в ней коммиты, на которых висят теги
+            # 3. Фильтруем строго теги, которые заканчиваются на -dev
+            TARGET_DEV_TAGS=$(git log --merge --format="%d" 2>/dev/null | grep -o 'tag: [^,)]*' | sed 's/tag: //' | grep -- '-dev$' || echo "")
           
-            if [ -z "$DEV_TAGS" ]; then
-              echo "No old -dev tags found to clean up."
+            if [ -z "$TARGET_DEV_TAGS" ]; then
+              echo "No merged -dev tags found in this branch history to clean up."
             else
-              for TAG in $DEV_TAGS; do
-                echo "Cleaning up stale prerelease tag: $TAG"
+              # Удаляем дубликаты, если на один коммит попало несколько тегов
+              UNIQUE_TAGS=$(echo "$TARGET_DEV_TAGS" | sort -u)
           
-                # Удаляем сам релиз из интерфейса GitHub
+              for TAG in $UNIQUE_TAGS; do
+                echo "Cleaning up merged prerelease tag from this branch: $TAG"
+          
+                # Удаляем релиз из интерфейса GitHub
                 curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   "https://github.com{{ github.repository }}/releases/tags/$TAG" || true
           
@@ -67,7 +77,7 @@ jobs:
                 curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   "https://github.com{{ github.repository }}/git/refs/tags/$TAG" || true
               done
-              echo "All legacy -dev tags have been successfully wiped out."
+              echo "All merged -dev tags for this specific release have been cleaned up."
             fi
           fi
 
