@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 import org.example.calculator.domain.CalculationRepository
 import org.example.calculator.domain.Operation
 import org.example.calculator.domain.PageData
+import org.example.calculator.presentation.settings.dynamicColorsSupport
+import org.example.calculator.presentation.ui.theme.ContrastLevel
 import org.example.calculator.domain.Calculation as DomainCalculation
 
 interface RootComponent {
@@ -29,6 +31,10 @@ interface RootComponent {
     val lastSavedId: StateFlow<Long?>
     val hasNext: StateFlow<Boolean>
     val hasPrevious: StateFlow<Boolean>
+
+    val theme: StateFlow<Boolean?>
+    val contrastLevel: StateFlow<ContrastLevel>
+    val dynamic: StateFlow<Boolean>?
 
     fun appendDigit(digit: String)
 
@@ -43,6 +49,10 @@ interface RootComponent {
     fun loadNext()
 
     fun loadPrevious()
+
+    fun updateTheme(newValue: Boolean?)
+    fun updateContrastLevel(newValue: ContrastLevel)
+    fun updateDynamic(newValue: Boolean)
 }
 
 private class RootComponentImpl(
@@ -271,6 +281,27 @@ private class RootComponentImpl(
                 if (op == Operation.Plus) acc + num else acc - num
             },
         )
+    }
+
+    private val _dynamic = if (dynamicColorsSupport) MutableStateFlow(value = true) else null
+    override val dynamic = _dynamic?.asStateFlow()
+
+    private val _theme = MutableStateFlow<Boolean?>(value = null)
+    override val theme = _theme.asStateFlow()
+
+    private val _contrastLevel = MutableStateFlow(value = ContrastLevel.Normal)
+    override val contrastLevel = _contrastLevel.asStateFlow()
+
+    override fun updateDynamic(newValue: Boolean) {
+        _dynamic?.value = newValue
+    }
+
+    override fun updateTheme(newValue: Boolean?) {
+        _theme.value = newValue
+    }
+
+    override fun updateContrastLevel(newValue: ContrastLevel) {
+        _contrastLevel.value = newValue
     }
 }
 

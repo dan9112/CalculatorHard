@@ -30,10 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -56,7 +52,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.example.calculator.domain.Operation
 import org.example.calculator.presentation.settings.ExpandableSettingsPanel
-import org.example.calculator.presentation.settings.dynamicColorsSupport
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
 import kotlin.math.absoluteValue
@@ -115,15 +110,9 @@ fun RootScreen(
     modifier: Modifier = Modifier,
     orientation: Orientation = rememberOrientation(),
 ) {
-    var theme by rememberSaveable { mutableStateOf<Boolean?>(value = null) }
-    var contrast by rememberSaveable(
-        stateSaver = Saver(
-            save = { it.ordinal },
-            restore = { ContrastLevel.entries[it] },
-        ),
-    ) { mutableStateOf(value = ContrastLevel.Normal) }
-    val dynamic =
-        if (dynamicColorsSupport) rememberSaveable { mutableStateOf(value = true) } else null
+    val theme by rootComponent.theme.collectAsState()
+    val contrast by rootComponent.contrastLevel.collectAsState()
+    val dynamic = rootComponent.dynamic?.collectAsState()
 
     AppTheme(
         darkTheme = theme ?: isSystemInDarkTheme(),
@@ -389,10 +378,10 @@ fun RootScreen(
                         .align(Alignment.TopStart)
                         .padding(top = padding.calculateTopPadding()),
                     buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
-                    theme = theme to { theme = it },
-                    contrast = contrast to { contrast = it },
+                    theme = theme to rootComponent::updateTheme,
+                    contrast = contrast to rootComponent::updateContrastLevel,
                     dynamic = dynamic?.let { state ->
-                        state.value to { dynamic.value = it }
+                        state.value to rootComponent::updateDynamic
                     },
                 )
             }
@@ -511,6 +500,9 @@ private fun RootScreenPreview() {
             override val lastSavedId = MutableStateFlow(null)
             override val hasNext = MutableStateFlow(false)
             override val hasPrevious = MutableStateFlow(false)
+            override val theme = MutableStateFlow(null)
+            override val contrastLevel = MutableStateFlow(ContrastLevel.Normal)
+            override val dynamic = MutableStateFlow(true)
 
             override fun appendDigit(digit: String) {}
             override fun applyOperation(operation: Operation) {}
@@ -519,6 +511,9 @@ private fun RootScreenPreview() {
             override fun clearCurrent() {}
             override fun loadNext() {}
             override fun loadPrevious() {}
+            override fun updateTheme(newValue: Boolean?) {}
+            override fun updateContrastLevel(newValue: ContrastLevel) {}
+            override fun updateDynamic(newValue: Boolean) {}
         },
     )
 }
