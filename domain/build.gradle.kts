@@ -11,8 +11,6 @@ kotlin {
         namespace = "org.example.calculator.domain"
     }
 
-    iosArm64()
-    iosSimulatorArm64()
     jvm()
     js {
         browser()

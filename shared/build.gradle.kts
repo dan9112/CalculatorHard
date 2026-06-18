@@ -12,20 +12,6 @@ kotlin {
         namespace = "org.example.calculator.shared"
     }
 
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "Shared"
-            isStatic = true
-            export(project(":presentation"))
-
-            export(libs.decompose.core)
-            export(libs.essenty.lifecycle)
-        }
-    }
-
     jvm()
 
     js {

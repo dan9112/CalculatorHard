@@ -14,8 +14,6 @@ kotlin {
         namespace = "org.example.calculator.data"
     }
 
-    iosArm64()
-    iosSimulatorArm64()
     jvm()
     js {
         browser()
@@ -39,14 +37,21 @@ kotlin {
 
             implementation(libs.sqlDelight.coroutines.extensions)
             implementation(libs.sqlDelight.primitive.adapters)
+
+            implementation(libs.multiplatform.settings)
+            implementation(libs.multiplatform.settings.coroutines)
         }
         androidMain.dependencies {
+            implementation(libs.koin.android)
+
             implementation(libs.sqlDelight.android.driver)
         }
         nativeMain.dependencies {
+            implementation(libs.koin.core)
             implementation(libs.sqlDelight.native.driver)
         }
         jvmMain.dependencies {
+            implementation(libs.koin.core)
             implementation(libs.sqlDelight.sqlite.driver)
         }
     }

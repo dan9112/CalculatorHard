@@ -14,8 +14,6 @@ kotlin {
 
         withHostTest { }
     }
-    iosArm64()
-    iosSimulatorArm64()
     jvm()
     js {
         browser()
