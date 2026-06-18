@@ -22,8 +22,8 @@ import kotlinx.coroutines.launch
 import org.example.calculator.domain.CalculationRepository
 import org.example.calculator.domain.Operation
 import org.example.calculator.domain.PageData
+import org.example.calculator.domain.SettingsRepository
 import org.example.calculator.presentation.RootComponent.Companion.step
-import org.example.calculator.presentation.settings.dynamicColorsSupport
 import org.example.calculator.presentation.ui.theme.ContrastLevel
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -71,6 +71,7 @@ interface RootComponent {
 private class RootComponentImpl(
     componentContext: ComponentContext,
     private val calculationRepository: CalculationRepository,
+    private val settingsRepository: SettingsRepository,
     private val componentScope: CoroutineScope = componentContext.coroutineScope(),
 ) : RootComponent,
     ComponentContext by componentContext,
@@ -317,36 +318,63 @@ private class RootComponentImpl(
         )
     }
 
-    private val _dynamic =
-        if (dynamicColorsSupport) MutableStateFlow(value = ThemeAttributeValue.Value(true)) else null
-    override val dynamic = _dynamic?.asStateFlow()
+    override val dynamic = settingsRepository
+        .themeDynamicColors
+        ?.map(transform = ThemeAttributeValue<Boolean>::Value)
+        ?.stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
 
-    private val _theme = MutableStateFlow(value = ThemeAttributeValue.Value<Boolean?>(null))
-    override val theme = _theme.asStateFlow()
+    override val theme = settingsRepository
+        .darkTheme
+        .map(transform = ThemeAttributeValue<Boolean?>::Value)
+        .stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
 
     private val _contrastLevel =
         MutableStateFlow(value = ThemeAttributeValue.Value(ContrastLevel.Normal))
-    override val contrastLevel = _contrastLevel.asStateFlow()
+    override val contrastLevel = settingsRepository
+        .themeContrastLevel
+        .map {
+            ThemeAttributeValue.Value(
+                when (it) {
+                    true -> ContrastLevel.High
+                    false -> ContrastLevel.Medium
+                    null -> ContrastLevel.Normal
+                },
+            )
+        }
+        .stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
 
-    override fun updateDynamic(newValue: Boolean) {
-        _dynamic?.value = ThemeAttributeValue.Value(newValue)
-    }
+    override fun updateDynamic(newValue: Boolean) = settingsRepository.updateThemeDynamicColors(newValue)
 
-    override fun updateTheme(newValue: Boolean?) {
-        _theme.value = ThemeAttributeValue.Value(newValue)
-    }
+    override fun updateTheme(newValue: Boolean?) = settingsRepository.updateDarkTheme(newValue)
 
-    override fun updateContrastLevel(newValue: ContrastLevel) {
-        _contrastLevel.value = ThemeAttributeValue.Value(newValue)
-    }
+    override fun updateContrastLevel(newValue: ContrastLevel) = settingsRepository.updateThemeContrastLevel(
+        newValue = when (newValue) {
+            ContrastLevel.Normal -> null
+            ContrastLevel.Medium -> false
+            ContrastLevel.High -> true
+        },
+    )
 }
 
 fun createRootComponent(
     componentContext: ComponentContext,
     calculationRepository: CalculationRepository,
-): RootComponent = RootComponentImpl(componentContext, calculationRepository)
+    settingsRepository: SettingsRepository,
+): RootComponent = RootComponentImpl(componentContext, calculationRepository, settingsRepository)
 
-sealed interface ThemeAttributeValue<T> {
+sealed interface ThemeAttributeValue<out T> {
     data object Idle : ThemeAttributeValue<Nothing>
     data class Value<T>(val value: T) : ThemeAttributeValue<T>
 }
