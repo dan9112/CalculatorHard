@@ -3,8 +3,10 @@ package org.example.calculator.presentation
 import androidx.compose.runtime.snapshotFlow
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,11 +22,15 @@ import kotlinx.coroutines.launch
 import org.example.calculator.domain.CalculationRepository
 import org.example.calculator.domain.Operation
 import org.example.calculator.domain.PageData
+import org.example.calculator.presentation.RootComponent.Companion.step
 import org.example.calculator.presentation.settings.dynamicColorsSupport
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import org.example.calculator.domain.Calculation as DomainCalculation
 
-interface RootComponent {
+interface CalculationComponent {
     val calculations: StateFlow<List<DomainCalculation>>
     val calculation: StateFlow<Calculation>
     val currentInput: StateFlow<String>
@@ -32,35 +38,63 @@ interface RootComponent {
     val hasNext: StateFlow<Boolean>
     val hasPrevious: StateFlow<Boolean>
 
-    val theme: StateFlow<Boolean?>
-    val contrastLevel: StateFlow<ContrastLevel>
-    val dynamic: StateFlow<Boolean>?
-
     fun appendDigit(digit: String)
-
     fun applyOperation(operation: Operation)
-
     fun calculateResult()
-
     fun backspace()
-
     fun clearCurrent()
-
     fun loadNext()
-
     fun loadPrevious()
+}
+
+interface SettingsComponent {
+    val theme: StateFlow<ThemeAttributeValue<Boolean?>>
+    val contrastLevel: StateFlow<ThemeAttributeValue<ContrastLevel>>
+    val dynamic: StateFlow<ThemeAttributeValue<Boolean>>?
 
     fun updateTheme(newValue: Boolean?)
     fun updateContrastLevel(newValue: ContrastLevel)
     fun updateDynamic(newValue: Boolean)
 }
 
+interface RootComponent {
+    val splashScreenFinished: StateFlow<Float>
+
+    val calculationComponent: CalculationComponent
+    val settingsComponent: SettingsComponent
+
+    companion object {
+        val step = 150.milliseconds
+    }
+}
+
 private class RootComponentImpl(
     componentContext: ComponentContext,
     private val calculationRepository: CalculationRepository,
+    private val componentScope: CoroutineScope = componentContext.coroutineScope(),
 ) : RootComponent,
-    ComponentContext by componentContext {
-    private val componentScope = componentContext.coroutineScope()
+    ComponentContext by componentContext,
+    CalculationComponent,
+    SettingsComponent {
+    // todo: replace with separate implementations!
+    override val calculationComponent = this
+    override val settingsComponent = this
+
+    private val _splashScreenFinished = MutableStateFlow(value = 0f)
+    override val splashScreenFinished = _splashScreenFinished.asStateFlow()
+
+    init {
+        componentScope.launch {
+            val totalTime = 3.2.seconds
+            var time = Duration.ZERO
+            while (time < totalTime) {
+                delay(step)
+                time += step
+                _splashScreenFinished.value = (time / totalTime).toFloat()
+            }
+        }
+    }
+
     private val pageSize = 12
     private val windowSize = 3
 
@@ -283,25 +317,27 @@ private class RootComponentImpl(
         )
     }
 
-    private val _dynamic = if (dynamicColorsSupport) MutableStateFlow(value = true) else null
+    private val _dynamic =
+        if (dynamicColorsSupport) MutableStateFlow(value = ThemeAttributeValue.Value(true)) else null
     override val dynamic = _dynamic?.asStateFlow()
 
-    private val _theme = MutableStateFlow<Boolean?>(value = null)
+    private val _theme = MutableStateFlow(value = ThemeAttributeValue.Value<Boolean?>(null))
     override val theme = _theme.asStateFlow()
 
-    private val _contrastLevel = MutableStateFlow(value = ContrastLevel.Normal)
+    private val _contrastLevel =
+        MutableStateFlow(value = ThemeAttributeValue.Value(ContrastLevel.Normal))
     override val contrastLevel = _contrastLevel.asStateFlow()
 
     override fun updateDynamic(newValue: Boolean) {
-        _dynamic?.value = newValue
+        _dynamic?.value = ThemeAttributeValue.Value(newValue)
     }
 
     override fun updateTheme(newValue: Boolean?) {
-        _theme.value = newValue
+        _theme.value = ThemeAttributeValue.Value(newValue)
     }
 
     override fun updateContrastLevel(newValue: ContrastLevel) {
-        _contrastLevel.value = newValue
+        _contrastLevel.value = ThemeAttributeValue.Value(newValue)
     }
 }
 
@@ -309,3 +345,8 @@ fun createRootComponent(
     componentContext: ComponentContext,
     calculationRepository: CalculationRepository,
 ): RootComponent = RootComponentImpl(componentContext, calculationRepository)
+
+sealed interface ThemeAttributeValue<T> {
+    data object Idle : ThemeAttributeValue<Nothing>
+    data class Value<T>(val value: T) : ThemeAttributeValue<T>
+}

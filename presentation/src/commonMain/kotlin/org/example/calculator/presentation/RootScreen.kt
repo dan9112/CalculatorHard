@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.example.calculator.domain.Operation
+import org.example.calculator.presentation.CalculationResult.Result
 import org.example.calculator.presentation.settings.ExpandableSettingsPanel
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
@@ -66,17 +67,18 @@ private const val DISPLAY_VERTICAL_WEIGHT = 3
 private const val SPACE_BETWEEN_BUTTONS = 2
 private const val BUTTONS_COLUMNS = 4
 private const val BUTTONS_ROWS = 5
-val MIN_BUTTONS_WIDTH =
+const val MIN_BUTTONS_WIDTH =
     MIN_BUTTON_SIZE * BUTTONS_COLUMNS + SPACE_BETWEEN_BUTTONS * (BUTTONS_COLUMNS - 1)
-val MIN_BUTTONS_HEIGHT = MIN_BUTTON_SIZE * BUTTONS_ROWS + SPACE_BETWEEN_BUTTONS * (BUTTONS_ROWS - 1)
+const val MIN_BUTTONS_HEIGHT =
+    MIN_BUTTON_SIZE * BUTTONS_ROWS + SPACE_BETWEEN_BUTTONS * (BUTTONS_ROWS - 1)
 private const val BUTTONS_HORIZONTAL_WEIGHT = 5
 private const val BUTTONS_VERTICAL_WEIGHT = 4
 private const val BUTTON_CORNERS = 10
 const val PADDINGS = 5
-val MIN_SCREEN_HORIZONTAL_WIDTH = MIN_DISPLAY_WIDTH + MIN_BUTTONS_WIDTH + PADDINGS * 3
+const val MIN_SCREEN_HORIZONTAL_WIDTH = MIN_DISPLAY_WIDTH + MIN_BUTTONS_WIDTH + PADDINGS * 3
 val MIN_SCREEN_HORIZONTAL_HEIGHT = maxOf(MIN_DISPLAY_WIDTH, MIN_BUTTONS_WIDTH) + PADDINGS * 3
 val MIN_SCREEN_VERTICAL_WIDTH = maxOf(MIN_DISPLAY_HEIGHT, MIN_BUTTONS_HEIGHT) + PADDINGS * 3
-val MIN_SCREEN_VERTICAL_HEIGHT = MIN_DISPLAY_HEIGHT + MIN_BUTTONS_HEIGHT + PADDINGS * 3
+const val MIN_SCREEN_VERTICAL_HEIGHT = MIN_DISPLAY_HEIGHT + MIN_BUTTONS_HEIGHT + PADDINGS * 3
 
 @Composable
 expect fun rememberOrientation(): Orientation
@@ -86,7 +88,7 @@ fun Float.formatDisplay() = when {
     isNaN() -> "NaN"
     this == Float.POSITIVE_INFINITY -> "∞"
     this == Float.NEGATIVE_INFINITY -> "-∞"
-    else -> toString().toDouble().let { formatWithPrecision(it, factor = 100L, precision = 2) }
+    else -> formatWithPrecision(toString().toDouble(), factor = 100L, precision = 2)
 }
 
 private fun formatWithPrecision(value: Double, factor: Long, precision: Int): String {
@@ -106,18 +108,20 @@ private fun formatWithPrecision(value: Double, factor: Long, precision: Int): St
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun RootScreen(
-    rootComponent: RootComponent,
+    component: CalculationComponent,
     modifier: Modifier = Modifier,
+    theme: Boolean? = null,
+    updateTheme: (Boolean?) -> Unit = { },
+    contrast: ContrastLevel = ContrastLevel.Normal,
+    updateContrast: (ContrastLevel) -> Unit = { },
+    dynamic: Boolean = false,
+    updateDynamic: ((Boolean) -> Unit)? = null,
     orientation: Orientation = rememberOrientation(),
 ) {
-    val theme by rootComponent.theme.collectAsState()
-    val contrast by rootComponent.contrastLevel.collectAsState()
-    val dynamic = rootComponent.dynamic?.collectAsState()
-
     AppTheme(
         darkTheme = theme ?: isSystemInDarkTheme(),
         contrastLevel = contrast,
-        dynamicColor = dynamic?.value ?: false,
+        dynamicColor = dynamic,
     ) {
         Scaffold(
             modifier = modifier,
@@ -136,47 +140,47 @@ fun RootScreen(
                     .onPreviewKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown) {
                             when (event.key) {
-                                Key.NumPad0, Key.Zero -> rootComponent.appendDigit("0")
+                                Key.NumPad0, Key.Zero -> component.appendDigit("0")
 
-                                Key.NumPad1, Key.One -> rootComponent.appendDigit("1")
+                                Key.NumPad1, Key.One -> component.appendDigit("1")
 
-                                Key.NumPad2, Key.Two -> rootComponent.appendDigit("2")
+                                Key.NumPad2, Key.Two -> component.appendDigit("2")
 
-                                Key.NumPad3, Key.Three -> rootComponent.appendDigit("3")
+                                Key.NumPad3, Key.Three -> component.appendDigit("3")
 
-                                Key.NumPad4, Key.Four -> rootComponent.appendDigit("4")
+                                Key.NumPad4, Key.Four -> component.appendDigit("4")
 
-                                Key.NumPad5, Key.Five -> rootComponent.appendDigit("5")
+                                Key.NumPad5, Key.Five -> component.appendDigit("5")
 
-                                Key.NumPad6, Key.Six -> rootComponent.appendDigit("6")
+                                Key.NumPad6, Key.Six -> component.appendDigit("6")
 
-                                Key.NumPad7, Key.Seven -> rootComponent.appendDigit("7")
+                                Key.NumPad7, Key.Seven -> component.appendDigit("7")
 
-                                Key.NumPad8, Key.Eight -> rootComponent.appendDigit("8")
+                                Key.NumPad8, Key.Eight -> component.appendDigit("8")
 
-                                Key.NumPad9, Key.Nine -> rootComponent.appendDigit("9")
+                                Key.NumPad9, Key.Nine -> component.appendDigit("9")
 
-                                Key.Period, Key.Comma, Key.NumPadComma, Key.NumPadDot -> rootComponent.appendDigit(
+                                Key.Period, Key.Comma, Key.NumPadComma, Key.NumPadDot -> component.appendDigit(
                                     ".",
                                 )
 
-                                Key.Minus -> rootComponent.applyOperation(Operation.Minus)
+                                Key.Minus -> component.applyOperation(Operation.Minus)
 
-                                Key.Plus, Key.NumPadAdd -> rootComponent.applyOperation(Operation.Plus)
+                                Key.Plus, Key.NumPadAdd -> component.applyOperation(Operation.Plus)
 
-                                Key.Multiply, Key.NumPadMultiply -> rootComponent.applyOperation(
+                                Key.Multiply, Key.NumPadMultiply -> component.applyOperation(
                                     Operation.Mult,
                                 )
 
-                                Key.Slash, Key.NumPadDivide -> rootComponent.applyOperation(
+                                Key.Slash, Key.NumPadDivide -> component.applyOperation(
                                     Operation.Div,
                                 )
 
-                                Key.Backspace -> rootComponent.backspace()
+                                Key.Backspace -> component.backspace()
 
-                                Key.Enter, Key.NumPadEnter, Key.NumPadEquals, Key.Equals -> rootComponent.calculateResult()
+                                Key.Enter, Key.NumPadEnter, Key.NumPadEquals, Key.Equals -> component.calculateResult()
 
-                                Key.Escape -> rootComponent.clearCurrent()
+                                Key.Escape -> component.clearCurrent()
 
                                 else -> return@onPreviewKeyEvent false
                             }
@@ -222,12 +226,12 @@ fun RootScreen(
                 val buttonsWidth by animateDpAsState(targetValue = targetButtonsWidth)
                 val buttonsHeight by animateDpAsState(targetValue = targetButtonsHeight)
 
-                val calculation by rootComponent.calculation.collectAsState()
-                val currentInput by rootComponent.currentInput.collectAsState()
-                val lastSavedId by rootComponent.lastSavedId.collectAsState()
-                val visibleHistory by rootComponent.calculations.collectAsState()
-                val hasOlder by rootComponent.hasPrevious.collectAsState()
-                val hasNewer by rootComponent.hasNext.collectAsState()
+                val calculation by component.calculation.collectAsState()
+                val currentInput by component.currentInput.collectAsState()
+                val lastSavedId by component.lastSavedId.collectAsState()
+                val visibleHistory by component.calculations.collectAsState()
+                val hasOlder by component.hasPrevious.collectAsState()
+                val hasNewer by component.hasNext.collectAsState()
                 val listState = rememberLazyListState()
 
                 LaunchedEffect(listState) {
@@ -235,7 +239,7 @@ fun RootScreen(
                         .distinctUntilChanged()
                         .collect { canScrollForward ->
                             if (!canScrollForward && hasOlder) {
-                                rootComponent.loadPrevious()
+                                component.loadPrevious()
                             }
                         }
                 }
@@ -244,7 +248,7 @@ fun RootScreen(
                         .distinctUntilChanged()
                         .collect { canScrollBackward ->
                             if (!canScrollBackward && hasNewer) {
-                                rootComponent.loadNext()
+                                component.loadNext()
                             }
                         }
                 }
@@ -267,7 +271,7 @@ fun RootScreen(
                     if (isSticky) {
                         val lastNum =
                             if (calculation.numbers.size > calculation.operations.size) calculation.numbers.last() else 0f
-                        append("${lastNum.formatDisplay()} = ${(calculation.result as? CalculationResult.Result)?.number?.formatDisplay() ?: "Calculate error"} ")
+                        append("${lastNum.formatDisplay()} = ${(calculation.result as? Result)?.number?.formatDisplay() ?: "Calculate error"} ")
                     } else {
                         if (calculation.numbers.size > calculation.operations.size) {
                             append(
@@ -285,7 +289,7 @@ fun RootScreen(
                 }
 
                 val previewResult = if (isSticky) {
-                    (calculation.result as? CalculationResult.Result)?.number?.formatDisplay()
+                    (calculation.result as? Result)?.number?.formatDisplay()
                         ?: "Error"
                 } else {
                     calculatePreview(calculation.numbers, calculation.operations, currentInput)
@@ -367,10 +371,10 @@ fun RootScreen(
                         .width(buttonsWidth)
                         .height(buttonsHeight)
                         .align(Alignment.BottomEnd),
-                    onDigit = rootComponent::appendDigit,
-                    onOperation = rootComponent::applyOperation,
-                    onEquals = rootComponent::calculateResult,
-                    onBackspace = rootComponent::backspace,
+                    onDigit = component::appendDigit,
+                    onOperation = component::applyOperation,
+                    onEquals = component::calculateResult,
+                    onBackspace = component::backspace,
                 )
 
                 ExpandableSettingsPanel(
@@ -378,11 +382,9 @@ fun RootScreen(
                         .align(Alignment.TopStart)
                         .padding(top = padding.calculateTopPadding()),
                     buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
-                    theme = theme to rootComponent::updateTheme,
-                    contrast = contrast to rootComponent::updateContrastLevel,
-                    dynamic = dynamic?.let { state ->
-                        state.value to rootComponent::updateDynamic
-                    },
+                    theme = theme to updateTheme,
+                    contrast = contrast to updateContrast,
+                    dynamic = updateDynamic?.let { update -> dynamic to update },
                 )
             }
         }
@@ -493,16 +495,13 @@ private fun StaticCalculatorGrid(
 @Composable
 private fun RootScreenPreview() {
     RootScreen(
-        rootComponent = object : RootComponent {
+        component = object : CalculationComponent {
             override val calculations = MutableStateFlow(emptyList<DomainCalculation>())
             override val calculation = MutableStateFlow(Calculation())
             override val currentInput = MutableStateFlow("0.0")
             override val lastSavedId = MutableStateFlow(null)
             override val hasNext = MutableStateFlow(false)
             override val hasPrevious = MutableStateFlow(false)
-            override val theme = MutableStateFlow(null)
-            override val contrastLevel = MutableStateFlow(ContrastLevel.Normal)
-            override val dynamic = MutableStateFlow(true)
 
             override fun appendDigit(digit: String) {}
             override fun applyOperation(operation: Operation) {}
@@ -511,9 +510,6 @@ private fun RootScreenPreview() {
             override fun clearCurrent() {}
             override fun loadNext() {}
             override fun loadPrevious() {}
-            override fun updateTheme(newValue: Boolean?) {}
-            override fun updateContrastLevel(newValue: ContrastLevel) {}
-            override fun updateDynamic(newValue: Boolean) {}
         },
     )
 }
