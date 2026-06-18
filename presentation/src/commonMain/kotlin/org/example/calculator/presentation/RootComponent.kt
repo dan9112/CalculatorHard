@@ -38,7 +38,7 @@ interface CalculationComponent {
     val hasNext: StateFlow<Boolean>
     val hasPrevious: StateFlow<Boolean>
 
-    fun appendDigit(digit: String)
+    fun appendNumberChar(digit: Char)
     fun applyOperation(operation: Operation)
     fun calculateResult()
     fun backspace()
@@ -175,14 +175,14 @@ private class RootComponentImpl(
         }
     }
 
-    override fun appendDigit(digit: String) {
+    override fun appendNumberChar(digit: Char) {
         if (lastSavedId.value != null) clearCurrent()
         _currentInput.update { current ->
-            if (digit == "." && current.contains(".")) return@update current
+            if (digit == '.' && current.contains(".")) return@update current
             if (current.length >= 12) return@update current
             when {
-                current == "0" && digit != "." -> digit
-                (current == "0" || current.isEmpty()) && digit == "." -> "0."
+                current == "0" && digit != '.' -> "$digit"
+                (current == "0" || current.isEmpty()) && digit == '.' -> "0."
                 else -> current + digit
             }
         }
