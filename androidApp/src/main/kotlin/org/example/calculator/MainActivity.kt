@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -38,7 +41,9 @@ class MainActivity : AppCompatActivity() {
 
             val splashScreenFinished by rootComponent.splashScreenFinished.collectAsState()
 
-            if (currentTheme is Value && currentContrast is Value && currentDynamic is Value && splashScreenFinished >= 1f) {
+            var isAnimationFinished by remember { mutableStateOf(value = false) }
+
+            if (currentTheme is Value && currentContrast is Value && currentDynamic is Value && isAnimationFinished) {
                 RootScreen(
                     modifier = Modifier.fillMaxSize(),
                     component = rootComponent.calculationComponent,
@@ -57,17 +62,22 @@ class MainActivity : AppCompatActivity() {
                         durationMillis = RootComponent.step.inWholeMilliseconds.toInt(),
                         easing = LinearEasing,
                     ),
-                )
-                // todo: splash screen template!
+                ) { if (it >= 1f) isAnimationFinished = true }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
-                            brush = Brush.linearGradient(
-                                0f to Color.Red,
-                                currentProgress to Color.Green,
-                                1f to Color.Blue,
-                            ),
+                            brush = when (currentProgress) {
+                                0f -> Brush.linearGradient(listOf(Color.Green, Color.Blue))
+
+                                1f -> Brush.linearGradient(listOf(Color.Red, Color.Green))
+
+                                else -> Brush.linearGradient(
+                                    0f to Color.Red,
+                                    currentProgress to Color.Green,
+                                    1f to Color.Blue,
+                                )
+                            },
                         ),
                 )
             }
