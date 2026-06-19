@@ -54,6 +54,12 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.sqlDelight.sqlite.driver)
         }
+        jsMain.dependencies {
+            implementation(kotlin("dom-api-compat"))
+        }
+        wasmJsMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-browser:0.5.0")
+        }
     }
 }
 

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.example.calculator.domain.SettingsRepository
 
-class MultiplatformSettingsRepository(private val settings: Settings) : SettingsRepository {
+class MultiplatformSettingsRepositoryWeb(private val settings: Settings) : SettingsRepository {
     private val _darkTheme = MutableStateFlow(value = settings.getBooleanOrNull(key = DARK_KEY))
     override val darkTheme = _darkTheme.asStateFlow()
 
