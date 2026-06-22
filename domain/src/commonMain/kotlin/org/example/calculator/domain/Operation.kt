@@ -4,5 +4,5 @@ enum class Operation(val charSymbol: Char) {
     Plus(charSymbol = '+'),
     Minus(charSymbol = '-'),
     Mult(charSymbol = '*'),
-    Div(charSymbol = '/')
+    Div(charSymbol = '/'),
 }

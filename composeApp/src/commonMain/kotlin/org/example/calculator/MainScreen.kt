@@ -51,7 +51,7 @@ fun MainScreen(
     val currentContrast = contrast
 
     var isAnimationFinished by remember { mutableStateOf(value = false) }
-    
+
     val layoutDirection = LocalLayoutDirection.current
 
     AppTheme(
@@ -61,27 +61,32 @@ fun MainScreen(
         contrastLevel = (contrast as? Value)
             ?.value
             ?: ContrastLevel.Normal,
-        dynamicColor = false
+        dynamicColor = false,
     ) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.primaryContainer) { innerPadding ->
+        Scaffold(
+            modifier = modifier,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) { innerPadding ->
             val padding = innerPadding + PaddingValues(all = PADDINGS.dp)
 
             if (currentTheme is Value && currentContrast is Value && isAnimationFinished) {
                 RootScreen(
                     component = calculationComponent,
-                    modifier = modifier.padding(
-                        start = padding.calculateStartPadding(layoutDirection),
-                        end = padding.calculateEndPadding(layoutDirection)
-                    ),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(
+                            start = padding.calculateStartPadding(layoutDirection),
+                            end = padding.calculateEndPadding(layoutDirection),
+                        ),
                     padding = VerticalPadding(
                         top = padding.calculateTopPadding(),
-                        bottom = padding.calculateBottomPadding()
+                        bottom = padding.calculateBottomPadding(),
                     ),
                     theme = currentTheme.value,
                     updateTheme = settingsComponent::updateTheme,
                     contrast = currentContrast.value,
                     updateContrast = settingsComponent::updateContrastLevel,
-                    orientation = orientation
+                    orientation = orientation,
                 )
             } else {
                 // todo: splash screen template!
@@ -107,8 +112,8 @@ fun MainScreen(
                                     currentProgress to Color.Green,
                                     1f to Color.Blue,
                                 )
-                            }
-                        )
+                            },
+                        ),
                 )
             }
         }

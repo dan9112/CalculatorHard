@@ -68,7 +68,7 @@ class MainActivity : AppCompatActivity() {
                     ?: ContrastLevel.Normal,
                 dynamicColor = (dynamic as? Value)
                     ?.value
-                    ?: false
+                    ?: false,
             ) {
                 Scaffold(containerColor = MaterialTheme.colorScheme.primaryContainer) { innerPadding ->
                     val padding = innerPadding + PaddingValues(all = PADDINGS.dp)
@@ -80,18 +80,18 @@ class MainActivity : AppCompatActivity() {
                                 .fillMaxSize()
                                 .padding(
                                     start = padding.calculateStartPadding(layoutDirection),
-                                    end = padding.calculateEndPadding(layoutDirection)
+                                    end = padding.calculateEndPadding(layoutDirection),
                                 ),
                             padding = VerticalPadding(
                                 top = padding.calculateTopPadding(),
-                                bottom = padding.calculateBottomPadding()
+                                bottom = padding.calculateBottomPadding(),
                             ),
                             theme = currentTheme.value,
                             updateTheme = rootComponent.settingsComponent::updateTheme,
                             contrast = currentContrast.value,
                             updateContrast = rootComponent.settingsComponent::updateContrastLevel,
                             dynamic = currentDynamic.value,
-                            updateDynamic = rootComponent.settingsComponent::updateDynamic
+                            updateDynamic = rootComponent.settingsComponent::updateDynamic,
                         )
                     } else {
                         // todo: replace with SplashScreen API later!
@@ -99,7 +99,7 @@ class MainActivity : AppCompatActivity() {
                             targetValue = splashScreenFinished,
                             animationSpec = tween(
                                 durationMillis = RootComponent.step.inWholeMilliseconds.toInt(),
-                                easing = LinearEasing
+                                easing = LinearEasing,
                             ),
                         ) { if (it >= 1f) isAnimationFinished = true }
 
@@ -111,15 +111,15 @@ class MainActivity : AppCompatActivity() {
                                         0f -> Brush.linearGradient(
                                             listOf(
                                                 Color.Green,
-                                                Color.Blue
-                                            )
+                                                Color.Blue,
+                                            ),
                                         )
 
                                         1f -> Brush.linearGradient(
                                             listOf(
                                                 Color.Red,
-                                                Color.Green
-                                            )
+                                                Color.Green,
+                                            ),
                                         )
 
                                         else -> Brush.linearGradient(
@@ -127,8 +127,8 @@ class MainActivity : AppCompatActivity() {
                                             currentProgress to Color.Green,
                                             1f to Color.Blue,
                                         )
-                                    }
-                                )
+                                    },
+                                ),
                         )
                     }
                 }

@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -40,12 +41,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
+import calculator.presentation.generated.resources.Res
+import calculator.presentation.generated.resources.copy
+import calculator.presentation.generated.resources.divide_by_zero
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.example.calculator.domain.Operation
+import org.example.calculator.presentation.CalculationResult.DivideByZero
 import org.example.calculator.presentation.CalculationResult.Result
 import org.example.calculator.presentation.settings.ExpandableSettingsPanel
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.absoluteValue
 import kotlin.math.roundToLong
 import org.example.calculator.domain.Calculation as DomainCalculation
@@ -126,44 +133,60 @@ fun RootScreen(
             if (event.type == KeyEventType.KeyDown) {
                 when (event.key) {
                     Key.NumPad0, Key.Zero -> component.appendNumberChar(digit = '0')
+
                     Key.NumPad1, Key.One -> component.appendNumberChar(digit = '1')
+
                     Key.NumPad2, Key.Two -> component.appendNumberChar(digit = '2')
+
                     Key.NumPad3, Key.Three -> component.appendNumberChar(digit = '3')
+
                     Key.NumPad4, Key.Four -> component.appendNumberChar(digit = '4')
+
                     Key.NumPad5, Key.Five -> component.appendNumberChar(digit = '5')
+
                     Key.NumPad6, Key.Six -> component.appendNumberChar(digit = '6')
+
                     Key.NumPad7, Key.Seven -> component.appendNumberChar(digit = '7')
+
                     Key.NumPad8, Key.Eight -> component.appendNumberChar(digit = '8')
+
                     Key.NumPad9, Key.Nine -> component.appendNumberChar(digit = '9')
+
                     Key.Comma,
                     Key.Period,
                     Key.NumPadComma,
-                    Key.NumPadDot -> component.appendNumberChar(digit = '.')
+                    Key.NumPadDot,
+                    -> component.appendNumberChar(digit = '.')
 
                     Key.Minus -> component.applyOperation(Operation.Minus)
+
                     Key.Plus, Key.NumPadAdd -> component.applyOperation(Operation.Plus)
+
                     Key.Multiply, Key.NumPadMultiply -> component.applyOperation(
-                        Operation.Mult
+                        Operation.Mult,
                     )
 
                     Key.Slash, Key.NumPadDivide -> component.applyOperation(
-                        Operation.Div
+                        Operation.Div,
                     )
 
                     Key.Backspace -> component.backspace()
+
                     Key.Enter,
                     Key.Equals,
                     Key.NumPadEnter,
-                    Key.NumPadEquals -> component.calculateResult()
+                    Key.NumPadEquals,
+                    -> component.calculateResult()
 
                     Key.Escape -> component.clearCurrent()
+
                     else -> return@onPreviewKeyEvent false
                 }
                 true
             } else {
                 false
             }
-        }
+        },
     ) {
         val width = maxWidth - when (orientation) {
             Orientation.Vertical -> 0.dp
@@ -248,7 +271,7 @@ fun RootScreen(
                                 Operation.Minus -> "- "
                                 Operation.Mult -> "* "
                                 Operation.Div -> "/ "
-                            }
+                            },
                         )
                     }
                 }
@@ -278,22 +301,30 @@ fun RootScreen(
             }
         }
 
-        val previewResult = calculation.run {
-            if (isSticky) {
-                (result as? Result)
-                    ?.number
-                    ?.formatDisplay()
-                    ?: "Error"
-            } else {
-                calculatePreview(numbers, operations, currentInput)
-            }
-        }
+        val previewResult by rememberUpdatedState(
+            newValue = when (
+                val current = calculation.run {
+                    if (isSticky) {
+                        result
+                    } else {
+                        calculatePreview(numbers, operations, currentInput)
+                    }
+                }
+            ) {
+                DivideByZero -> stringResource(resource = Res.string.divide_by_zero)
+
+                is Result ->
+                    current
+                        .number
+                        .formatDisplay()
+            },
+        )
 
         Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .width(displayWidth)
-                .height(displayHeight)
+                .height(displayHeight),
         ) {
             LazyColumn(
                 modifier = Modifier
@@ -306,7 +337,7 @@ fun RootScreen(
                     2.dp,
                     alignment = Alignment.Bottom,
                 ),
-                horizontalAlignment = Alignment.End
+                horizontalAlignment = Alignment.End,
             ) {
                 items(visibleHistory, key = { it.id }) { calc ->
                     Text(
@@ -334,8 +365,8 @@ fun RootScreen(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
                                 alpha = 0.6f,
-                            )
-                        )
+                            ),
+                        ),
                     )
                 }
             }
@@ -343,7 +374,7 @@ fun RootScreen(
             @Composable
             fun CurrentCalculationText(
                 text: String,
-                fontWeight: FontWeight? = null
+                fontWeight: FontWeight? = null,
             ) = Text(
                 text = text,
                 modifier = Modifier
@@ -352,17 +383,22 @@ fun RootScreen(
                 textAlign = TextAlign.End,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontWeight = fontWeight
-                )
+                    fontWeight = fontWeight,
+                ),
             )
 
             CurrentCalculationText(text = expression)
 
-            // todo: add copy to buffer through context menu
-            CurrentCalculationText(
-                text = previewResult,
-                fontWeight = if (isSticky) FontWeight.Bold else null
-            )
+            AppContextMenu(
+                menuContent = {
+                    item(label = Res.string.copy) { copyToClipboard(text = previewResult) }
+                },
+            ) {
+                CurrentCalculationText(
+                    text = previewResult,
+                    fontWeight = if (isSticky) FontWeight.Bold else null,
+                )
+            }
         }
 
         StaticCalculatorGrid(
@@ -374,7 +410,7 @@ fun RootScreen(
             onChar = component::appendNumberChar,
             onOperation = component::applyOperation,
             onEquals = component::calculateResult,
-            onBackspace = component::backspace
+            onBackspace = component::backspace,
         )
 
         ExpandableSettingsPanel(
@@ -384,7 +420,7 @@ fun RootScreen(
             buttonShape = RoundedCornerShape(size = BUTTON_CORNERS.dp),
             theme = theme to updateTheme,
             contrast = contrast to updateContrast,
-            dynamic = updateDynamic?.let { update -> dynamic to update }
+            dynamic = updateDynamic?.let { update -> dynamic to update },
         )
     }
 }
@@ -393,8 +429,8 @@ private fun calculatePreview(
     numbers: List<Float>,
     operations: List<Operation>,
     currentInput: String,
-): String {
-    if (currentInput.isEmpty() && numbers.isEmpty()) return "0"
+): CalculationResult {
+    if (currentInput.isEmpty() && numbers.isEmpty()) return Result(number = 0.0)
     val currentNum = currentInput
         .toFloatOrNull()
         ?: 0f
@@ -407,8 +443,14 @@ private fun calculatePreview(
     } else {
         numbers
     }
-    if (allNumbers.isEmpty()) return "0"
-    if (allNumbers.size == 1 && operations.isEmpty()) return allNumbers[0].formatDisplay()
+    if (allNumbers.isEmpty()) return Result(number = 0.0)
+    if (allNumbers.size == 1 && operations.isEmpty()) {
+        return Result(
+            number = allNumbers
+                .first()
+                .toDouble(),
+        )
+    }
 
     val numbs = allNumbers.toMutableList()
     val ops = operations.toMutableList()
@@ -427,7 +469,7 @@ private fun calculatePreview(
 
             Operation.Div -> {
                 if (idx < numbs.lastIndex) {
-                    if (numbs[idx + 1] == 0f) return INFINITY
+                    if (numbs[idx + 1] == 0f) return DivideByZero
                     numbs[idx] /= numbs[idx + 1]
                     numbs.removeAt(idx + 1)
                     ops.removeAt(idx)
@@ -441,11 +483,27 @@ private fun calculatePreview(
             }
         }
     }
-    return ops
-        .zip(other = numbs.drop(1))
-        .fold(initial = numbs.first()) { acc, (op, n) -> if (op == Operation.Plus) acc + n else acc - n }
-        .formatDisplay()
+
+    return Result(
+        number = ops
+            .zip(other = numbs.drop(1))
+            .fold(initial = numbs.first()) { acc, (op, n) -> if (op == Operation.Plus) acc + n else acc - n }
+            .toDouble(),
+    )
 }
+
+internal expect class ContextItemScope {
+    fun item(label: String, onClick: () -> Unit)
+    fun item(label: StringResource, onClick: () -> Unit)
+}
+
+internal expect fun ContextItemScope.copyToClipboard(text: String)
+
+@Composable
+internal expect fun AppContextMenu(
+    menuContent: ContextItemScope.() -> Unit,
+    content: @Composable () -> Unit,
+)
 
 @Composable
 private fun StaticCalculatorGrid(
@@ -489,7 +547,7 @@ private fun StaticCalculatorGrid(
             row: Int,
             col: Int,
             char: Char,
-            colSpan: Int = 1
+            colSpan: Int = 1,
         ) = GridButton(row = row, col = col, text = "$char", colSpan = colSpan) { onChar(char) }
 
         @Composable
@@ -497,12 +555,12 @@ private fun StaticCalculatorGrid(
             row: Int,
             col: Int,
             operation: Operation,
-            rowSpan: Int = 1
+            rowSpan: Int = 1,
         ) = GridButton(
             row = row,
             col = col,
             text = "${operation.charSymbol}",
-            rowSpan = rowSpan
+            rowSpan = rowSpan,
         ) { onOperation(operation) }
 
         GridOperationButton(row = 0, col = 0, operation = Operation.Mult)
@@ -545,6 +603,6 @@ private fun RootScreenPreview() {
             override fun loadNext() {}
             override fun loadPrevious() {}
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
     )
 }
