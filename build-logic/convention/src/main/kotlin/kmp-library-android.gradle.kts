@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     kotlin("multiplatform")
     id("com.android.kotlin.multiplatform.library")
@@ -13,10 +11,6 @@ kotlin {
 
         androidResources {
             enable = true
-        }
-
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
         }
     }
 }
