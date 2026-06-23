@@ -1,12 +1,11 @@
 pre-commit:
   parallel: false
   commands:
-    # Проверяем и форматируем только Kotlin файлы из текущего git add
     spotless-format:
       glob: "*.{kt,kts}"
-      run: ./gradlew spotlessApply -PspotlessFiles="{staged_files}"
+      run: ./gradlew spotlessApply
+      args: -PspotlessIdeHook={staged_files_absolute}
       stage_fixed: true
 
-    # Прогон юнит-тестов перед фиксацией коммита
     run-tests:
       run: ./gradlew test testDebugUnitTest
