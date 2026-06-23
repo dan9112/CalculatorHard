@@ -215,8 +215,6 @@ fun ExpandableSettingsPanel(
     }
 }
 
-expect val dynamicColorsSupport: Boolean
-
 @Composable
 private fun SettingIconButton(
     icon: ImageVector,

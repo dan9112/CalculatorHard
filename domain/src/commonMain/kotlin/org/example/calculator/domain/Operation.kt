@@ -1,8 +1,8 @@
 package org.example.calculator.domain
 
-enum class Operation {
-    Plus,
-    Minus,
-    Mult,
-    Div,
+enum class Operation(val charSymbol: Char) {
+    Plus(charSymbol = '+'),
+    Minus(charSymbol = '-'),
+    Mult(charSymbol = '*'),
+    Div(charSymbol = '/'),
 }

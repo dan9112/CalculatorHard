@@ -13,4 +13,8 @@
 
     <string name="dynamic_color_on">Dynamic colors enabled</string>
     <string name="dynamic_color_off">Dynamic colors disabled</string>
+
+
+    <string name="divide_by_zero">Divide by zero</string>
+    <string name="copy">Copy</string>
 </resources>

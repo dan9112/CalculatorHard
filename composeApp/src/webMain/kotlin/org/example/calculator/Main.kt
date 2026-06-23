@@ -1,7 +1,8 @@
 package org.example.calculator
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -16,8 +17,6 @@ import org.example.calculator.presentation.MIN_SCREEN_HORIZONTAL_HEIGHT
 import org.example.calculator.presentation.MIN_SCREEN_HORIZONTAL_WIDTH
 import org.example.calculator.presentation.MIN_SCREEN_VERTICAL_HEIGHT
 import org.example.calculator.presentation.MIN_SCREEN_VERTICAL_WIDTH
-import org.example.calculator.presentation.RootScreen
-import org.example.calculator.presentation.rememberOrientation
 import org.example.calculator.shared.createRootComponent
 import org.example.calculator.shared.startKoin
 import org.w3c.dom.HTMLElement
@@ -49,17 +48,14 @@ fun main() {
     }
 
     ComposeViewport {
-        val orientation = rememberOrientation()
+        val splashScreenFinished by rootComponent.splashScreenFinished.collectAsState()
 
-        Box(
+        MainScreen(
             modifier = Modifier.fillMaxSize(),
-        ) {
-            RootScreen(
-                modifier = Modifier.fillMaxSize(),
-                rootComponent = rootComponent,
-                orientation = orientation,
-            )
-        }
+            calculationComponent = rootComponent.calculationComponent,
+            settingsComponent = rootComponent.settingsComponent,
+            splashScreenFinished = splashScreenFinished,
+        )
     }
 }
 

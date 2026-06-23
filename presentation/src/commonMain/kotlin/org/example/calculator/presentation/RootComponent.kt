@@ -3,8 +3,10 @@ package org.example.calculator.presentation
 import androidx.compose.runtime.snapshotFlow
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,9 +22,15 @@ import kotlinx.coroutines.launch
 import org.example.calculator.domain.CalculationRepository
 import org.example.calculator.domain.Operation
 import org.example.calculator.domain.PageData
+import org.example.calculator.domain.SettingsRepository
+import org.example.calculator.presentation.RootComponent.Companion.step
+import org.example.calculator.presentation.ui.theme.ContrastLevel
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import org.example.calculator.domain.Calculation as DomainCalculation
 
-interface RootComponent {
+interface CalculationComponent {
     val calculations: StateFlow<List<DomainCalculation>>
     val calculation: StateFlow<Calculation>
     val currentInput: StateFlow<String>
@@ -30,27 +38,64 @@ interface RootComponent {
     val hasNext: StateFlow<Boolean>
     val hasPrevious: StateFlow<Boolean>
 
-    fun appendDigit(digit: String)
-
+    fun appendNumberChar(digit: Char)
     fun applyOperation(operation: Operation)
-
     fun calculateResult()
-
     fun backspace()
-
     fun clearCurrent()
-
     fun loadNext()
-
     fun loadPrevious()
+}
+
+interface SettingsComponent {
+    val theme: StateFlow<ThemeAttributeValue<Boolean?>>
+    val contrastLevel: StateFlow<ThemeAttributeValue<ContrastLevel>>
+    val dynamic: StateFlow<ThemeAttributeValue<Boolean>>?
+
+    fun updateTheme(newValue: Boolean?)
+    fun updateContrastLevel(newValue: ContrastLevel)
+    fun updateDynamic(newValue: Boolean)
+}
+
+interface RootComponent {
+    val splashScreenFinished: StateFlow<Float>
+
+    val calculationComponent: CalculationComponent
+    val settingsComponent: SettingsComponent
+
+    companion object {
+        val step = 150.milliseconds
+    }
 }
 
 private class RootComponentImpl(
     componentContext: ComponentContext,
     private val calculationRepository: CalculationRepository,
+    private val settingsRepository: SettingsRepository,
+    private val componentScope: CoroutineScope = componentContext.coroutineScope(),
 ) : RootComponent,
-    ComponentContext by componentContext {
-    private val componentScope = componentContext.coroutineScope()
+    ComponentContext by componentContext,
+    CalculationComponent,
+    SettingsComponent {
+    // todo: replace with separate implementations!
+    override val calculationComponent = this
+    override val settingsComponent = this
+
+    private val _splashScreenFinished = MutableStateFlow(value = 0f)
+    override val splashScreenFinished = _splashScreenFinished.asStateFlow()
+
+    init {
+        componentScope.launch {
+            val totalTime = 3.2.seconds
+            var time = Duration.ZERO
+            while (time < totalTime) {
+                delay(step)
+                time += step
+                _splashScreenFinished.value = (time / totalTime).toFloat()
+            }
+        }
+    }
+
     private val pageSize = 12
     private val windowSize = 3
 
@@ -130,14 +175,14 @@ private class RootComponentImpl(
         }
     }
 
-    override fun appendDigit(digit: String) {
+    override fun appendNumberChar(digit: Char) {
         if (lastSavedId.value != null) clearCurrent()
         _currentInput.update { current ->
-            if (digit == "." && current.contains(".")) return@update current
+            if (digit == '.' && current.contains(".")) return@update current
             if (current.length >= 12) return@update current
             when {
-                current == "0" && digit != "." -> digit
-                (current == "0" || current.isEmpty()) && digit == "." -> "0."
+                current == "0" && digit != '.' -> "$digit"
+                (current == "0" || current.isEmpty()) && digit == '.' -> "0."
                 else -> current + digit
             }
         }
@@ -272,9 +317,64 @@ private class RootComponentImpl(
             },
         )
     }
+
+    override val dynamic = settingsRepository
+        .themeDynamicColors
+        ?.map(transform = ThemeAttributeValue<Boolean>::Value)
+        ?.stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
+
+    override val theme = settingsRepository
+        .darkTheme
+        .map(transform = ThemeAttributeValue<Boolean?>::Value)
+        .stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
+
+    private val _contrastLevel =
+        MutableStateFlow(value = ThemeAttributeValue.Value(ContrastLevel.Normal))
+    override val contrastLevel = settingsRepository
+        .themeContrastLevel
+        .map {
+            ThemeAttributeValue.Value(
+                when (it) {
+                    true -> ContrastLevel.High
+                    false -> ContrastLevel.Medium
+                    null -> ContrastLevel.Normal
+                },
+            )
+        }
+        .stateIn(
+            scope = componentScope,
+            started = SharingStarted.Eagerly,
+            initialValue = ThemeAttributeValue.Idle,
+        )
+
+    override fun updateDynamic(newValue: Boolean) = settingsRepository.updateThemeDynamicColors(newValue)
+
+    override fun updateTheme(newValue: Boolean?) = settingsRepository.updateDarkTheme(newValue)
+
+    override fun updateContrastLevel(newValue: ContrastLevel) = settingsRepository.updateThemeContrastLevel(
+        newValue = when (newValue) {
+            ContrastLevel.Normal -> null
+            ContrastLevel.Medium -> false
+            ContrastLevel.High -> true
+        },
+    )
 }
 
 fun createRootComponent(
     componentContext: ComponentContext,
     calculationRepository: CalculationRepository,
-): RootComponent = RootComponentImpl(componentContext, calculationRepository)
+    settingsRepository: SettingsRepository,
+): RootComponent = RootComponentImpl(componentContext, calculationRepository, settingsRepository)
+
+sealed interface ThemeAttributeValue<out T> {
+    data object Idle : ThemeAttributeValue<Nothing>
+    data class Value<T>(val value: T) : ThemeAttributeValue<T>
+}

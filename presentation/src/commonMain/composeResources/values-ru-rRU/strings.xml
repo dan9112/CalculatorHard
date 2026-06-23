@@ -13,4 +13,8 @@
 
     <string name="dynamic_color_on">Адаптивные цвета включены</string>
     <string name="dynamic_color_off">Адаптивные цвета выключены</string>
+
+
+    <string name="divide_by_zero">Деление на ноль</string>
+    <string name="copy">Копировать</string>
 </resources>

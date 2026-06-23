@@ -4,7 +4,6 @@ import org.example.calculator.data.dataModule
 import org.example.calculator.presentation.presentationModule
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
-import org.koin.core.module.Module
 import org.koin.dsl.KoinAppDeclaration
 
 private fun privateStartKoin(appDeclaration: KoinAppDeclaration? = null) {
@@ -13,7 +12,6 @@ private fun privateStartKoin(appDeclaration: KoinAppDeclaration? = null) {
         modules(
             dataModule,
             presentationModule,
-            platformSqlDelightDependenciesModule,
         )
         appDeclaration?.invoke(this)
     }
@@ -22,5 +20,3 @@ private fun privateStartKoin(appDeclaration: KoinAppDeclaration? = null) {
 internal fun startKoin(appDeclaration: KoinAppDeclaration) = privateStartKoin(appDeclaration = appDeclaration)
 
 fun startKoin() = privateStartKoin(appDeclaration = null)
-
-internal expect val platformSqlDelightDependenciesModule: Module
