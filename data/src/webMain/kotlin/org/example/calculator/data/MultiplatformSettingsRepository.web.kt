@@ -3,35 +3,35 @@ package org.example.calculator.data
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.example.calculator.domain.SettingsRepository
 
 class MultiplatformSettingsRepositoryWeb(private val settings: Settings) : SettingsRepository {
-    private val _darkTheme = MutableStateFlow(value = settings.getBooleanOrNull(key = DARK_KEY))
-    override val darkTheme = _darkTheme.asStateFlow()
+    override val darkTheme: StateFlow<Boolean?>
+        field = MutableStateFlow(value = settings.getBooleanOrNull(key = DARK_KEY))
 
-    private val _themeContrastLevel = MutableStateFlow(value = settings.getBooleanOrNull(key = CONTRAST_KEY))
-    override val themeContrastLevel = _themeContrastLevel.asStateFlow()
+    override val themeContrastLevel: StateFlow<Boolean?>
+        field = MutableStateFlow(value = settings.getBooleanOrNull(key = CONTRAST_KEY))
 
-    private val _themeDynamicColors = if (isDynamicColorsSupport) {
-        MutableStateFlow(value = settings.getBoolean(key = DYNAMIC_KEY, defaultValue = true))
-    } else {
-        null
-    }
-    override val themeDynamicColors = _themeDynamicColors?.asStateFlow()
+    override val themeDynamicColors: StateFlow<Boolean>?
+        field = if (isDynamicColorsSupport) {
+            MutableStateFlow(value = settings.getBoolean(key = DYNAMIC_KEY, defaultValue = true))
+        } else {
+            null
+        }
 
     override fun updateDarkTheme(newValue: Boolean?) {
         settings[DARK_KEY] = newValue
-        _darkTheme.value = newValue
+        darkTheme.value = newValue
     }
 
     override fun updateThemeContrastLevel(newValue: Boolean?) {
         settings[CONTRAST_KEY] = newValue
-        _themeContrastLevel.value = newValue
+        themeContrastLevel.value = newValue
     }
 
     override fun updateThemeDynamicColors(newValue: Boolean) {
-        _themeDynamicColors?.run {
+        themeDynamicColors?.run {
             settings[DYNAMIC_KEY] = newValue
             value = newValue
         }

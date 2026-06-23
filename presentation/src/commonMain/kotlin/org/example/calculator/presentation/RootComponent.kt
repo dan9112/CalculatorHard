@@ -10,7 +10,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -81,8 +80,8 @@ private class RootComponentImpl(
     override val calculationComponent = this
     override val settingsComponent = this
 
-    private val _splashScreenFinished = MutableStateFlow(value = 0f)
-    override val splashScreenFinished = _splashScreenFinished.asStateFlow()
+    override val splashScreenFinished: StateFlow<Float>
+        field = MutableStateFlow(value = 0f)
 
     init {
         componentScope.launch {
@@ -91,7 +90,7 @@ private class RootComponentImpl(
             while (time < totalTime) {
                 delay(step)
                 time += step
-                _splashScreenFinished.value = (time / totalTime).toFloat()
+                splashScreenFinished.value = (time / totalTime).toFloat()
             }
         }
     }
@@ -100,13 +99,12 @@ private class RootComponentImpl(
     private val windowSize = 3
 
     private val currentPage = MutableStateFlow(0)
-    private val _lastSavedId = MutableStateFlow<Long?>(null)
-    private val _calculation = MutableStateFlow(Calculation())
-    private val _currentInput = MutableStateFlow("")
-
-    override val lastSavedId = _lastSavedId.asStateFlow()
-    override val calculation = _calculation.asStateFlow()
-    override val currentInput = _currentInput.asStateFlow()
+    override val lastSavedId: StateFlow<Long?>
+        field = MutableStateFlow<Long?>(value = null)
+    override val calculation: StateFlow<Calculation>
+        field = MutableStateFlow(value = Calculation())
+    override val currentInput: StateFlow<String>
+        field = MutableStateFlow(value = "")
 
     private val pageStates = mutableMapOf<Int, MutableStateFlow<PageData<DomainCalculation>>>()
     private val pageJobs = mutableMapOf<Int, Job>()
@@ -145,7 +143,8 @@ private class RootComponentImpl(
                         emit(emptyList())
                     }
                 }
-            }.stateIn(componentScope, SharingStarted.Eagerly, emptyList())
+            }
+            .stateIn(componentScope, SharingStarted.Eagerly, emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override val hasPrevious =
@@ -153,7 +152,8 @@ private class RootComponentImpl(
             .flatMapLatest { page ->
                 val lastPageIdx = page + windowSize - 1
                 pageStates[lastPageIdx]?.map { it.hasNext } ?: flowOf(false)
-            }.stateIn(componentScope, SharingStarted.Eagerly, false)
+            }
+            .stateIn(componentScope, SharingStarted.Eagerly, false)
 
     override val hasNext =
         currentPage.map { it > 0 }.stateIn(componentScope, SharingStarted.Eagerly, false)
@@ -177,7 +177,7 @@ private class RootComponentImpl(
 
     override fun appendNumberChar(digit: Char) {
         if (lastSavedId.value != null) clearCurrent()
-        _currentInput.update { current ->
+        currentInput.update { current ->
             if (digit == '.' && current.contains(".")) return@update current
             if (current.length >= 12) return@update current
             when {
@@ -190,9 +190,14 @@ private class RootComponentImpl(
 
     override fun applyOperation(operation: Operation) {
         if (lastSavedId.value != null) clearCurrent()
-        _calculation.update { currentCalc ->
-            val inputNum = currentInput.value.toFloatOrNull() ?: 0f
-            val hasInput = currentInput.value.isNotEmpty()
+        calculation.update { currentCalc ->
+            val inputNum = currentInput
+                .value
+                .toFloatOrNull()
+                ?: 0f
+            val hasInput = currentInput
+                .value
+                .isNotEmpty()
             if (currentCalc.operations.size == currentCalc.numbers.size && !hasInput && currentCalc.operations.isNotEmpty()) {
                 if (currentCalc.operations.last() != operation) {
                     currentCalc.copy(operations = currentCalc.operations.dropLast(1) + operation)
@@ -206,26 +211,27 @@ private class RootComponentImpl(
                 )
             }
         }
-        _currentInput.value = ""
+        currentInput.value = ""
     }
 
     override fun calculateResult() {
         if (lastSavedId.value != null) return
-        val inputNum = _currentInput.value.toFloatOrNull() ?: 0f
-        val hasInput = _currentInput.value.isNotEmpty()
-        _currentInput.value = ""
+        val inputNum = currentInput.value.toFloatOrNull() ?: 0f
+        val hasInput = currentInput.value.isNotEmpty()
+        currentInput.value = ""
         val finalNumbers =
             if (hasInput) calculation.value.numbers + inputNum else calculation.value.numbers
         val result = calculate(finalNumbers, calculation.value.operations)
-        _calculation.value =
-            calculation.value.copy(
+        calculation.value = calculation
+            .value
+            .copy(
                 numbers = finalNumbers,
                 operations = calculation.value.operations,
                 result = result,
             )
         if (result is CalculationResult.Result) {
             componentScope.launch {
-                _lastSavedId.value =
+                lastSavedId.value =
                     calculationRepository.addCalculation(
                         finalNumbers,
                         calculation.value.operations,
@@ -246,20 +252,24 @@ private class RootComponentImpl(
         }
 
         when {
-            _currentInput.value.isNotEmpty() -> {
-                _currentInput.value = _currentInput.value.dropLast(1)
+            currentInput.value.isNotEmpty() -> {
+                currentInput.value = currentInput.value.dropLast(1)
             }
 
-            _calculation.value.numbers.size > _calculation.value.operations.size -> {
-                _calculation.update { calc ->
-                    _currentInput.value = calc.numbers.lastOrNull()?.let(cleanInput) ?: ""
+            calculation.value.numbers.size > calculation.value.operations.size -> {
+                calculation.update { calc ->
+                    currentInput.value = calc.numbers.lastOrNull()?.let(cleanInput) ?: ""
                     calc.copy(numbers = calc.numbers.dropLast(1))
                 }
             }
 
-            _calculation.value.numbers.isNotEmpty() -> {
-                _calculation.update { calc ->
-                    _currentInput.value = calc.numbers.lastOrNull()?.let(cleanInput) ?: ""
+            calculation.value.numbers.isNotEmpty() -> {
+                calculation.update { calc ->
+                    currentInput.value = calc
+                        .numbers
+                        .lastOrNull()
+                        ?.let(cleanInput)
+                        ?: ""
                     calc.copy(
                         numbers = calc.numbers.dropLast(1),
                         operations = calc.operations.dropLast(1),
@@ -270,9 +280,9 @@ private class RootComponentImpl(
     }
 
     override fun clearCurrent() {
-        _lastSavedId.value = null
-        _calculation.value = Calculation()
-        _currentInput.value = ""
+        lastSavedId.value = null
+        calculation.value = Calculation()
+        currentInput.value = ""
     }
 
     override fun loadNext() {
@@ -336,8 +346,6 @@ private class RootComponentImpl(
             initialValue = ThemeAttributeValue.Idle,
         )
 
-    private val _contrastLevel =
-        MutableStateFlow(value = ThemeAttributeValue.Value(ContrastLevel.Normal))
     override val contrastLevel = settingsRepository
         .themeContrastLevel
         .map {
