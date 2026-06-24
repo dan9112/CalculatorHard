@@ -1,8 +1,11 @@
 package org.example.calculator
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Window
@@ -45,14 +48,22 @@ fun main() {
 
             LifecycleController(lifecycleRegistry = lifecycle, windowState = rememberWindowState())
 
-            val splashScreenFinished by rootComponent.splashScreenFinished.collectAsState()
+            var needSplashScreen by rememberSaveable { mutableStateOf(value = true) }
 
             MainScreen(
                 modifier = Modifier.fillMaxSize(),
                 calculationComponent = rootComponent.calculationComponent,
                 settingsComponent = rootComponent.settingsComponent,
-                splashScreenFinished = splashScreenFinished,
+                splashScreenFinished = !needSplashScreen,
             )
+            if (needSplashScreen) {
+                SplashScreen(
+                    onFinish = { needSplashScreen = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(color = Color(color = 0xFFF7FAFC)),
+                )
+            }
         }
     }
 }

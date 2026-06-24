@@ -1,8 +1,6 @@
 package org.example.calculator
 
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.ComposeViewport
@@ -48,13 +46,11 @@ fun main() {
     }
 
     ComposeViewport {
-        val splashScreenFinished by rootComponent.splashScreenFinished.collectAsState()
-
         MainScreen(
             modifier = Modifier.fillMaxSize(),
             calculationComponent = rootComponent.calculationComponent,
             settingsComponent = rootComponent.settingsComponent,
-            splashScreenFinished = splashScreenFinished,
+            splashScreenFinished = true, // todo: check HTML!
         )
     }
 }
