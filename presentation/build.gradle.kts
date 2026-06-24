@@ -42,6 +42,7 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.jsystemthemedetector)
         }
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)

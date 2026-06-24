@@ -1,6 +1,5 @@
 package org.example.calculator.presentation.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -455,8 +454,11 @@ enum class ContrastLevel {
 expect fun dynamicColorScheme(darkTheme: Boolean): ColorScheme?
 
 @Composable
+expect fun isSystemDark(): Boolean
+
+@Composable
 fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = isSystemDark(),
     contrastLevel: ContrastLevel = ContrastLevel.Normal,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,

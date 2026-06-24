@@ -1,7 +1,6 @@
 package org.example.calculator.presentation.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Wallpapers
 import androidx.compose.ui.unit.dp
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import org.example.calculator.presentation.ui.theme.isSystemDark
 
 @Preview(wallpaper = Wallpapers.GREEN_DOMINATED_EXAMPLE)
 @Composable
@@ -39,7 +39,7 @@ private fun Preview() {
     var dynamic by rememberSaveable { mutableStateOf(value = true) }
 
     AppTheme(
-        darkTheme = theme ?: isSystemInDarkTheme(),
+        darkTheme = theme ?: isSystemDark(),
         contrastLevel = contrast,
         dynamicColor = dynamic,
     ) {

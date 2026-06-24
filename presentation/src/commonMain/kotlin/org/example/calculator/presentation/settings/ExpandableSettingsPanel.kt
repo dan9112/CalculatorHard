@@ -10,7 +10,6 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -71,6 +70,7 @@ import calculator.presentation.generated.resources.theme_light
 import calculator.presentation.generated.resources.theme_system
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import org.example.calculator.presentation.ui.theme.isSystemDark
 import org.jetbrains.compose.resources.stringResource
 
 private const val ANIMATION_DURATION = 300
@@ -382,7 +382,7 @@ private fun Preview() {
 
     // todo: replace with custom theme!
     AppTheme(
-        darkTheme = theme ?: isSystemInDarkTheme(),
+        darkTheme = theme ?: isSystemDark(),
         contrastLevel = contrast,
     ) {
         Box(

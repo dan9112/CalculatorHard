@@ -15,6 +15,7 @@ composeMultiplatform = "1.11.1"
 coroutinesExtensions = "2.3.2"
 decompose = "3.5.0"
 essenty = "2.5.0"
+jsystemthemedetector = "3.9.1"
 junit = "4.13.2"
 koin = "4.2.2"
 koinKspCompiler = "2.3.1"
@@ -49,6 +50,7 @@ decompose-compose = { module = "com.arkivanov.decompose:extensions-compose", ver
 decompose-core = { module = "com.arkivanov.decompose:decompose", version.ref = "decompose" }
 essenty-lifecycle = { module = "com.arkivanov.essenty:lifecycle", version.ref = "essenty" }
 essenty-lifecycle-coroutines = { module = "com.arkivanov.essenty:lifecycle-coroutines", version.ref = "essenty" }
+jsystemthemedetector = { module = "com.github.Dansoftowner:jSystemThemeDetector", version.ref = "jsystemthemedetector" }
 junit = { module = "junit:junit", version.ref = "junit" }
 koin-android = { module = "io.insert-koin:koin-android" }
 koin-annotations = { module = "io.insert-koin:koin-annotations" }

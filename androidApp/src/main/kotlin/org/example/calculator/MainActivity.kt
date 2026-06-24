@@ -8,7 +8,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -36,6 +35,7 @@ import org.example.calculator.presentation.ThemeAttributeValue.Value
 import org.example.calculator.presentation.VerticalPadding
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import org.example.calculator.presentation.ui.theme.isSystemDark
 import org.example.calculator.shared.createRootComponent
 
 class MainActivity : AppCompatActivity() {
@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
             AppTheme(
                 darkTheme = (theme as? Value)
                     ?.value
-                    ?: isSystemInDarkTheme(),
+                    ?: isSystemDark(),
                 contrastLevel = (contrast as? Value)
                     ?.value
                     ?: ContrastLevel.Normal,

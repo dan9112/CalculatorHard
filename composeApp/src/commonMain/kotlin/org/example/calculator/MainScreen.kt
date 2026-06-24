@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -36,6 +35,7 @@ import org.example.calculator.presentation.VerticalPadding
 import org.example.calculator.presentation.rememberOrientation
 import org.example.calculator.presentation.ui.theme.AppTheme
 import org.example.calculator.presentation.ui.theme.ContrastLevel
+import org.example.calculator.presentation.ui.theme.isSystemDark
 
 @Composable
 fun MainScreen(
@@ -57,7 +57,7 @@ fun MainScreen(
     AppTheme(
         darkTheme = (theme as? Value)
             ?.value
-            ?: isSystemInDarkTheme(),
+            ?: isSystemDark(),
         contrastLevel = (contrast as? Value)
             ?.value
             ?: ContrastLevel.Normal,
