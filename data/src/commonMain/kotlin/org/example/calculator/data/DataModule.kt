@@ -9,30 +9,27 @@ import org.example.calculator.domain.CalculationRepository
 import org.example.calculator.domain.InfoRepository
 import org.example.calculator.domain.SettingsRepository
 import org.koin.core.module.Module
-import org.koin.core.parameter.parametersOf
 import org.koin.dsl.module
 
 val dataModule = module {
-    platformInjections()
-
     single<InfoRepository> { InfoRepositoryImpl() }
+}
 
-    if (!getPlatform().name.startsWith(prefix = "Web")) {
-        single<CalculationRepository> { SqlDelightCalculationRepository(databaseDeferred = get()) }
+internal val defaultRepositoriesModule = module {
+    single<CalculationRepository> { SqlDelightCalculationRepository(databaseDeferred = get()) }
 
-        single<Deferred<SQLDelightDatabase>> {
-            CoroutineScope(context = Dispatchers.Default).async {
-                val factory: DriverFactory = get()
-                createDatabase(factory)
-            }
+    single<Deferred<SQLDelightDatabase>> {
+        CoroutineScope(context = Dispatchers.Default).async {
+            val factory: DriverFactory = get()
+            createDatabase(factory)
         }
+    }
 
-        single<SettingsRepository> {
-            MultiplatformSettingsRepository(
-                observableSettings = get { parametersOf("settings") },
-            )
-        }
+    single<SettingsRepository> {
+        MultiplatformSettingsRepository(
+            observableSettings = get(),
+        )
     }
 }
 
-internal expect fun Module.platformInjections()
+expect val platformModule: Module

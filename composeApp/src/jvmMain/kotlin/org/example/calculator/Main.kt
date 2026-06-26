@@ -14,6 +14,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.decompose.extensions.compose.lifecycle.LifecycleController
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import io.kotzilla.generated.monitoring
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.example.calculator.presentation.rememberOrientation
@@ -23,7 +24,9 @@ import java.awt.Dimension
 import java.awt.Color as AwtColor
 
 fun main() {
-    startKoin()
+    startKoin {
+        monitoring()
+    }
 
     val lifecycle = LifecycleRegistry()
     val rootComponent = runBlocking(Dispatchers.Main) {

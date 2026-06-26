@@ -3,14 +3,15 @@ package org.example.calculator.data
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.SharedPreferencesSettings
 import org.koin.android.ext.koin.androidContext
-import org.koin.core.module.Module
+import org.koin.dsl.module
 
-internal actual fun Module.platformInjections() {
+actual val platformModule = module {
     single { DriverFactory(context = androidContext()) }
 
     factory<ObservableSettings> { params ->
         SharedPreferencesSettings
             .Factory(androidContext())
-            .create(params.get())
+            .create("app_settings")
     }
+    includes(defaultRepositoriesModule)
 }

@@ -6,6 +6,12 @@ plugins {
     id("kmp-library-compose")
     id("kmp-library-test")
     alias(libs.plugins.composeHotReload)
+
+    alias(libs.plugins.kotzilla)
+}
+
+kotzilla {
+    versionName = "1.0.0"
 }
 
 fun getVersionFromGit(): String =

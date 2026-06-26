@@ -9,12 +9,18 @@ import org.example.calculator.domain.SettingsRepository
 
 @OptIn(ExperimentalSettingsApi::class)
 class MultiplatformSettingsRepository(private val observableSettings: ObservableSettings) : SettingsRepository {
-    override val darkTheme = observableSettings.getBooleanOrNullFlow(key = DARK_KEY)
-    override val themeContrastLevel = observableSettings.getBooleanOrNullFlow(key = CONTRAST_KEY)
-    override val themeDynamicColors = if (isDynamicColorsSupport) {
-        observableSettings.getBooleanFlow(key = DYNAMIC_KEY, defaultValue = true)
-    } else {
-        null
+    override val darkTheme by lazy {
+        observableSettings.getBooleanOrNullFlow(key = DARK_KEY)
+    }
+    override val themeContrastLevel by lazy {
+        observableSettings.getBooleanOrNullFlow(key = CONTRAST_KEY)
+    }
+    override val themeDynamicColors by lazy {
+        if (isDynamicColorsSupport) {
+            observableSettings.getBooleanFlow(key = DYNAMIC_KEY, defaultValue = true)
+        } else {
+            null
+        }
     }
 
     override fun updateDarkTheme(newValue: Boolean?) {

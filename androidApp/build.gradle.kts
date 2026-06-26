@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
+
+    alias(libs.plugins.kotzilla)
 }
 
 fun getVersionFromGit(): String =
@@ -29,6 +31,13 @@ fun getVersionFromGit(): String =
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions {
+        freeCompilerArgs.set(listOf("-Xskip-prerelease-check"))
+    }
+}
+
+kotzilla {
+    projectFile = "kotzilla.json"
 }
 
 android {
@@ -80,4 +89,7 @@ dependencies {
     implementation(libs.compose.material3)
 
     implementation(libs.androidx.core.splashscreen)
+
+    implementation(project.dependencies.platform(libs.koin.bom))
+    implementation(libs.koin.android)
 }

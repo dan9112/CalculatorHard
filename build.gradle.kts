@@ -10,7 +10,7 @@ plugins {
 
     alias(libs.plugins.spotless)
 
-//    alias(libs.plugins.kotzilla) apply false
+    alias(libs.plugins.kotzilla) apply true
 }
 
 spotless {

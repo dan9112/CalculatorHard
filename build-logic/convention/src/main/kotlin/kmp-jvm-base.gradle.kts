@@ -1,13 +1,11 @@
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-
 plugins {
     kotlin("multiplatform")
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(20)
     compilerOptions {
-        languageVersion.set(KotlinVersion.KOTLIN_2_4)
+//        languageVersion.set(KotlinVersion.KOTLIN_2_3)
         freeCompilerArgs.set(listOf("-Xexplicit-backing-fields"))
     }
 }

@@ -2,25 +2,19 @@ package org.example.calculator.data
 
 import com.russhwolf.settings.ObservableSettings
 import com.russhwolf.settings.PreferencesSettings
-import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.parameter.parametersOf
+import org.koin.dsl.module
 import java.util.prefs.Preferences
 
-internal actual fun Module.platformInjections() {
-    factory<PreferencesSettings.Factory> { params ->
-        PreferencesSettings.Factory(
-            params
-                .getOrNull()
-                ?: Preferences.userRoot(),
-        )
+actual val platformModule = module {
+    single<PreferencesSettings.Factory> {
+        PreferencesSettings.Factory(Preferences.userRoot())
     }
 
-    factory<ObservableSettings> { params ->
-        // todo: add param later!
-        get<PreferencesSettings.Factory> { parametersOf() }
-            .create(params.get())
+    single<ObservableSettings> {
+        get<PreferencesSettings.Factory>().create("app_settings")
     }
 
     singleOf(constructor = ::DriverFactory)
+    includes(defaultRepositoriesModule)
 }

@@ -1,0 +1,3 @@
+-keep class io.kotzilla.json.** { *; }
+-keep class io.kotzilla.data.json.** { *; }
+-keep class io.kotzilla.sdk.** { *; }

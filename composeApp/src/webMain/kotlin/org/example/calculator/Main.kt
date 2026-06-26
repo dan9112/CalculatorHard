@@ -9,6 +9,7 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.doOnDestroy
 import com.arkivanov.essenty.lifecycle.resume
 import com.arkivanov.essenty.lifecycle.stop
+import io.kotzilla.generated.monitoring
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.example.calculator.presentation.MIN_SCREEN_HORIZONTAL_HEIGHT
@@ -24,7 +25,9 @@ import kotlin.js.js
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    startKoin()
+    startKoin {
+        monitoring()
+    }
     val lifecycle = LifecycleRegistry()
     val rootComponent =
         createRootComponent(
